@@ -1,4 +1,4 @@
-import { Badge, Card } from "@cake-admin/cakeand";
+import { Card, Dropdown, Scrollbar } from "@cake-admin/cakeand";
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import styled from "styled-components";
@@ -7,6 +7,7 @@ import {
   getGuestInfo,
   getSeating,
   getSuiteDetail,
+  SUITE_FILTER_OPTIONS,
   type GuestInfo,
   type SectionCell,
   type SuiteCell,
@@ -15,7 +16,10 @@ import {
 import frontStageMic from "../assets/icons/front-stage-mic.svg";
 import { EChart } from "../charts/EChart";
 import { gaugeOption, ticketOption } from "../charts/options";
-import { PersonChip } from "../components/PersonChip";
+import { scrollGutter } from "../components/scrollGutter";
+import { NeutralChip } from "../components/NeutralChip";
+import { OverflowPersonChip, PersonChip } from "../components/PersonChip";
+import { TagChip } from "../components/TagChip";
 import { GuestInfoPopup } from "./seating/GuestInfoPopup";
 import { SuiteInfoPopup } from "./seating/SuiteInfoPopup";
 
@@ -50,6 +54,7 @@ function tooltipPosition(rect: DOMRect, width: number, height: number) {
 
 export function Seating() {
   const [hover, setHover] = useState<HoverState>(null);
+  const [suiteFilter, setSuiteFilter] = useState("all");
   const [guest, setGuest] = useState<GuestInfo | null>(null);
   const [suiteDetail, setSuiteDetail] = useState<SuiteDetail | null>(null);
   const leaveTimer = useRef<number | null>(null);
@@ -90,6 +95,17 @@ export function Seating() {
 
       <Layout>
         <SeatingMetrics />
+        <SuiteGapCard
+          onHover={(cell, rect) => {
+            cancelLeave();
+            setHover((prev) => {
+              if (prev?.kind === "suite" && prev.cell.id === cell.id) return prev;
+              return { kind: "suite", cell, rect };
+            });
+          }}
+          onLeave={scheduleLeave}
+          onOpen={openSuite}
+        />
 
         <SectionCard>
           <MapHeader>
@@ -146,6 +162,14 @@ export function Seating() {
           <MapHeader>
             <MapTitle>Suite fill status</MapTitle>
             <Updated>{data.updated}</Updated>
+            <FilterWrap>
+              <Dropdown
+                label="Filter suites by owner"
+                options={SUITE_FILTER_OPTIONS}
+                value={suiteFilter}
+                onValueChange={setSuiteFilter}
+              />
+            </FilterWrap>
           </MapHeader>
           <SphereMap>
             <StageRail aria-hidden="true">
@@ -168,6 +192,7 @@ export function Seating() {
                       });
                     }}
                     onLeave={scheduleLeave}
+                    muted={suiteFilter !== "all" && cell.ownerId !== suiteFilter}
                     onOpen={() => openSuite(cell)}
                   />
                 ))}
@@ -177,6 +202,7 @@ export function Seating() {
                   <SuiteFillButton
                     key={cell.id}
                     cell={cell}
+                    muted={suiteFilter !== "all" && cell.ownerId !== suiteFilter}
                     onHover={(next) => {
                       cancelLeave();
                       setHover((prev) => {
@@ -223,6 +249,9 @@ export function Seating() {
 const SeatingMetrics = memo(function SeatingMetrics() {
   return (
     <>
+      <GaugeCard $column="1" gauge={data.summary.sectionsFilled} />
+      <GapListCard $column="2" title="Sections not filled" rows={data.sectionsNotFilled} />
+      <GaugeCard $column="3" gauge={data.summary.suitesFilled} />
       <TicketCard>
         <CardTitle>Ticket allocation</CardTitle>
         <TicketRow>
@@ -249,63 +278,124 @@ const SeatingMetrics = memo(function SeatingMetrics() {
           </LegendItem>
         </Legend>
       </TicketCard>
-
-      <GaugeA>
-        <GaugeCard gauge={data.gauges[0]} />
-      </GaugeA>
-      <GaugeB>
-        <GaugeCard gauge={data.gauges[1]} />
-      </GaugeB>
-      <GaugeC>
-        <GaugeCard gauge={data.gauges[2]} />
-      </GaugeC>
-      <GaugeD>
-        <GaugeCard gauge={data.gauges[3]} />
-      </GaugeD>
-      <GaugeE>
-        <GaugeCard gauge={data.gauges[4]} />
-      </GaugeE>
+      <GaugeCard $column="8" gauge={data.summary.totalRegistration} />
     </>
   );
 });
 
-function GaugeCard({ gauge }: { gauge: (typeof data.gauges)[number] | undefined }) {
-  if (!gauge) return null;
+function GaugeCard({
+  gauge,
+  $column,
+}: {
+  gauge: (typeof data.summary)[keyof typeof data.summary];
+  $column: string;
+}) {
   return (
-    <>
+    <MetricCard $column={$column}>
       <CardTitle>{gauge.label}</CardTitle>
       <ChartFill>
-        <EChart option={gaugeOption(gauge)} label={`${gauge.label}, ${gauge.percent} percent registered`} />
+        <EChart option={gaugeOption(gauge)} label={`${gauge.label}, ${gauge.percent} percent`} />
       </ChartFill>
-    </>
+    </MetricCard>
+  );
+}
+
+function GapListCard({
+  title,
+  rows,
+  $column,
+}: {
+  title: string;
+  rows: { id: string; label: string; percent: number }[];
+  $column: string;
+}) {
+  return (
+    <MetricCard $column={$column}>
+      <CardTitle>{title}</CardTitle>
+      <ListFill>
+        <Scrollbar maxHeight="100%">
+          <GapStack>
+            {rows.map((row) => (
+              <GapLine key={row.id}>
+                <IdChip>{row.label}</IdChip>
+                <PercentChip color="red">{`${row.percent}%`}</PercentChip>
+              </GapLine>
+            ))}
+          </GapStack>
+        </Scrollbar>
+      </ListFill>
+    </MetricCard>
+  );
+}
+
+function SuiteGapCard({
+  onHover,
+  onLeave,
+  onOpen,
+}: {
+  onHover: (cell: SuiteCell, rect: DOMRect) => void;
+  onLeave: () => void;
+  onOpen: (cell: SuiteCell) => void;
+}) {
+  return (
+    <MetricCard $column="4">
+      <CardTitle>Suites not filled</CardTitle>
+      <ListFill>
+        <Scrollbar maxHeight="100%">
+          <GapStack>
+            {data.suitesNotFilled.map((cell) => {
+              const percent = cell.capacity > 0 ? Math.round((cell.filled / cell.capacity) * 100) : 0;
+              return (
+                <GapLine key={cell.id}>
+                  <IdChip
+                    aria-label={`${cell.label}, ${percent} percent filled. Show suite details.`}
+                    onMouseEnter={(event) => onHover(cell, event.currentTarget.getBoundingClientRect())}
+                    onMouseLeave={onLeave}
+                    onFocus={(event) => onHover(cell, event.currentTarget.getBoundingClientRect())}
+                    onBlur={onLeave}
+                    onClick={() => onOpen(cell)}
+                  >
+                    {cell.label}
+                  </IdChip>
+                  <PercentChip color="red">{`${percent}%`}</PercentChip>
+                </GapLine>
+              );
+            })}
+          </GapStack>
+        </Scrollbar>
+      </ListFill>
+    </MetricCard>
   );
 }
 
 function SuiteFillButton({
   cell,
+  muted = false,
   onHover,
   onLeave,
   onOpen,
 }: {
   cell: SuiteCell;
+  muted?: boolean;
   onHover: (state: HoverState) => void;
   onLeave: () => void;
   onOpen: () => void;
 }) {
+  const inactive = cell.level === "disabled" || muted;
   return (
     <FillCell
       type="button"
-      $level={cell.level}
-      $color={fillColor(cell.level)}
-      disabled={cell.level === "disabled"}
-      aria-label={cell.label}
+      $level={inactive ? "disabled" : cell.level}
+      $color={inactive ? (cell.level === "disabled" ? fillColor("disabled") : "var(--color-disabled-disabled)") : fillColor(cell.level)}
+      disabled={inactive}
+      aria-label={muted ? `${cell.label}, not assigned to the selected executive` : cell.label}
       onMouseEnter={(event) => {
-        if (cell.level === "disabled") return;
+        if (inactive) return;
         onHover({ kind: "suite", cell, rect: event.currentTarget.getBoundingClientRect() });
       }}
       onMouseLeave={onLeave}
       onFocus={(event) => {
-        if (cell.level === "disabled") return;
+        if (inactive) return;
         onHover({ kind: "suite", cell, rect: event.currentTarget.getBoundingClientRect() });
       }}
       onBlur={onLeave}
@@ -367,15 +457,13 @@ function SectionTooltip({ cell }: { cell: SectionCell }) {
     <>
       <HoverHead>
         <HoverTitle>Section {cell.label}</HoverTitle>
-        <FillBadge color="green" tone="subtle" dot={false}>
-          {seatLabel(cell.filled, cell.capacity)}
-        </FillBadge>
+        <TagChip color="green">{seatLabel(cell.filled, cell.capacity)}</TagChip>
       </HoverHead>
       <HoverBody>
         {cell.groups.map((group) => (
-          <GroupBadge key={group} color="purple" tone="subtle" dot={false}>
+          <TagChip key={group} color="purple">
             {group}
-          </GroupBadge>
+          </TagChip>
         ))}
       </HoverBody>
     </>
@@ -402,9 +490,7 @@ function SuiteTooltip({
           <SuiteName>{cell.suiteName}</SuiteName>
           <SuiteLead>Suite Lead: {cell.suiteLead}</SuiteLead>
         </SuiteNameBlock>
-        <FillBadge color="green" tone="subtle" dot={false}>
-          {seatLabel(cell.filled, cell.capacity)}
-        </FillBadge>
+        <TagChip color="green">{seatLabel(cell.filled, cell.capacity)}</TagChip>
       </HoverHead>
       <HoverBody>
         <NameWrap>
@@ -416,7 +502,7 @@ function SuiteTooltip({
               onClick={() => onGuestClick(name)}
             />
           ))}
-          {cell.moreCount > 0 ? <MorePill>+{cell.moreCount}</MorePill> : null}
+          {cell.moreCount > 0 ? <OverflowPersonChip count={cell.moreCount} /> : null}
         </NameWrap>
       </HoverBody>
     </>
@@ -499,48 +585,19 @@ const Surface = styled(Card)`
   }
 `;
 
-const TicketCard = styled(Surface)`
+const MetricCard = styled(Surface)<{ $column: string }>`
   && {
-    grid-column: 1 / 4;
+    grid-column: ${(props) => props.$column};
     grid-row: 1 / 3;
-  }
-`;
-
-const GaugeSurface = styled(Surface)`
-  && {
-    padding: 12px 14px 8px;
     overflow: hidden;
   }
 `;
 
-const GaugeA = styled(GaugeSurface)`
+const TicketCard = styled(Surface)`
   && {
-    grid-column: 4;
+    grid-column: 5 / 8;
     grid-row: 1 / 3;
-  }
-`;
-const GaugeB = styled(GaugeSurface)`
-  && {
-    grid-column: 5;
-    grid-row: 1 / 3;
-  }
-`;
-const GaugeC = styled(GaugeSurface)`
-  && {
-    grid-column: 6;
-    grid-row: 1 / 3;
-  }
-`;
-const GaugeD = styled(GaugeSurface)`
-  && {
-    grid-column: 7;
-    grid-row: 1 / 3;
-  }
-`;
-const GaugeE = styled(GaugeSurface)`
-  && {
-    grid-column: 8;
-    grid-row: 1 / 3;
+    overflow: hidden;
   }
 `;
 
@@ -630,6 +687,83 @@ const ChartFill = styled.div`
   flex: 1;
   min-height: 0;
   width: 100%;
+`;
+
+const ListFill = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow: visible;
+  ${scrollGutter}
+
+  > * {
+    height: 100%;
+  }
+`;
+
+const GapStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-050);
+  width: 100%;
+  min-width: 0;
+`;
+
+const GapLine = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+`;
+
+/* Gap-list layout: id stretches across the row, percent is a fixed column. */
+const IdChip = styled(NeutralChip)`
+  && {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    justify-content: center;
+  }
+`;
+
+const PercentChip = styled(TagChip)`
+  && {
+    flex: none;
+    width: 42px;
+    justify-content: center;
+  }
+`;
+
+const FilterWrap = styled.div`
+  position: relative;
+  width: 196px;
+  flex: none;
+
+  label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  button {
+    width: 100%;
+    height: 24px;
+    min-height: 24px;
+    padding-block: 0;
+    border-radius: var(--radius-1000);
+    overflow: hidden;
+  }
+
+  button,
+  button * {
+    white-space: nowrap !important;
+  }
 `;
 
 const MapHeader = styled.div`
@@ -819,36 +953,6 @@ const HoverBody = styled.div`
   padding: var(--space-300);
 `;
 
-const FillBadge = styled(Badge)`
-  && {
-    align-self: flex-start;
-    height: auto;
-    min-height: 16px;
-    padding: 0 var(--space-050);
-    font-size: var(--type-size-caption);
-    font-weight: var(--font-weight-bold);
-    letter-spacing: 0.2px;
-    line-height: 1.35;
-  }
-`;
-
-const GroupBadge = styled(Badge)`
-  && {
-    width: 100%;
-    justify-content: flex-start;
-    height: auto;
-    min-height: 24px;
-    padding: var(--space-050) var(--space-100);
-    border-radius: var(--radius-200);
-    font-size: var(--type-size-caption);
-    font-weight: var(--font-weight-bold);
-    letter-spacing: 0.2px;
-    line-height: 1.35;
-    white-space: normal;
-    text-align: left;
-  }
-`;
-
 const SuiteHeadRow = styled.div`
   display: flex;
   align-items: center;
@@ -909,17 +1013,3 @@ const NameWrap = styled.div`
   width: 100%;
 `;
 
-const MorePill = styled.span`
-  display: inline-flex;
-  align-items: center;
-  min-height: 16px;
-  padding: 0 var(--space-050);
-  border-radius: var(--radius-1000);
-  background: rgba(255, 255, 255, 0.8);
-  color: var(--color-text-icon-inverse);
-  font-size: var(--type-size-caption);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.2px;
-  line-height: 1.35;
-  white-space: nowrap;
-`;

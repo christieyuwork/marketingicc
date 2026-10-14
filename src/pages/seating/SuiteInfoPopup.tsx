@@ -1,4 +1,4 @@
-import { Badge, IconButton, Scrollbar } from "@cake-admin/cakeand";
+import { IconButton, Scrollbar } from "@cake-admin/cakeand";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
@@ -10,6 +10,8 @@ import displayGroupIcon from "../../assets/icons/seating/display_group.svg";
 import { CompanyChip } from "../../components/CompanyChip";
 import { PersonChip } from "../../components/PersonChip";
 import { SpeakerChip } from "../../components/SpeakerChip";
+import { scrollGutter } from "../../components/scrollGutter";
+import { TagChip } from "../../components/TagChip";
 
 type SuiteInfoPopupProps = {
   detail: SuiteDetail;
@@ -62,9 +64,7 @@ export function SuiteInfoPopup({ detail, onClose, onGuestClick }: SuiteInfoPopup
                   <SuiteName>{detail.suiteName}</SuiteName>
                   <SuiteLead>Suite Lead: {detail.suiteLead}</SuiteLead>
                 </TextBlock>
-                <FillBadge color="green" tone="subtle" dot={false}>
-                  {seatLabel(detail.filled, detail.capacity)}
-                </FillBadge>
+                <TagChip color="green">{seatLabel(detail.filled, detail.capacity)}</TagChip>
               </SummaryCopy>
             </SummaryInner>
           </SummaryCard>
@@ -115,9 +115,7 @@ export function SuiteInfoPopup({ detail, onClose, onGuestClick }: SuiteInfoPopup
                       {row.speaker ? (
                         <SpeakerChip iconSize={12} />
                       ) : row.group ? (
-                        <GroupBadge color="purple" tone="subtle" dot={false} title={row.group}>
-                          <GroupLabel>{row.group}</GroupLabel>
-                        </GroupBadge>
+                        <TagChip color="purple">{row.group}</TagChip>
                       ) : null}
                     </TagCell>
                   </SeatRow>
@@ -266,12 +264,6 @@ const SuiteLead = styled.p`
   white-space: nowrap;
 `;
 
-const FillBadge = styled(Badge)`
-  && {
-    align-self: flex-start;
-  }
-`;
-
 const FieldLabel = styled.p`
   margin: 0;
   font-size: var(--type-size-caption);
@@ -323,7 +315,8 @@ const SeatGlyph = styled.img`
 const ListShell = styled.div`
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
+  ${scrollGutter}
 
   > * {
     height: 100%;
@@ -399,27 +392,3 @@ const TagCell = styled.div`
   }
 `;
 
-const GroupBadge = styled(Badge)`
-  && {
-    display: inline-flex;
-    align-items: center;
-    width: max-content;
-    max-width: 100%;
-    min-width: 0;
-    height: 16px;
-    min-height: 16px;
-    padding: 0 var(--space-050);
-    overflow: hidden;
-  }
-`;
-
-const GroupLabel = styled.span`
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--type-size-caption);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.2px;
-  line-height: 1.35;
-`;

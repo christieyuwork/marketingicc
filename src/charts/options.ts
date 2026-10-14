@@ -170,11 +170,33 @@ export function allocationOption(rows: AllocationRow[]): EChartsCoreOption {
         formatter: (value: string) => {
           const row = rows[Number(value)];
           if (!row) return value;
-          return `{label|${row.group}}\n{note|${row.owner}}`;
+          const clip = (text: string, max: number) =>
+            text.length > max ? `${text.slice(0, max - 1)}…` : text;
+          return `{label|${clip(row.group, 24)}}\n{note|${clip(row.owner, 26)}}`;
         },
         rich: {
-          label: { fontFamily: CHART_FONT, fontWeight: 700, fontSize: 12, color: "#ffffff", align: "right", lineHeight: 16 },
-          note: { fontFamily: CHART_FONT, fontWeight: 400, fontSize: 11, color: "#aaaab4", align: "right", lineHeight: 14 },
+          label: {
+            fontFamily: CHART_FONT,
+            fontWeight: 700,
+            fontSize: 12,
+            color: "#ffffff",
+            align: "right",
+            lineHeight: 16,
+            width: 148,
+            overflow: "truncate",
+            ellipsis: "…",
+          },
+          note: {
+            fontFamily: CHART_FONT,
+            fontWeight: 400,
+            fontSize: 11,
+            color: "#aaaab4",
+            align: "right",
+            lineHeight: 14,
+            width: 148,
+            overflow: "truncate",
+            ellipsis: "…",
+          },
         },
       },
     },
@@ -257,7 +279,7 @@ export function gaugeOption(gauge: Gauge): EChartsCoreOption {
           offsetCenter: [0, "8%"],
           formatter: "{value}%",
         },
-        data: [{ value: gauge.percent, name: "Registered" }],
+        data: [{ value: gauge.percent, name: gauge.caption ?? "Registered" }],
       },
     ],
   };

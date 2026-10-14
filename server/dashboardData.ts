@@ -11,7 +11,15 @@ export type AllocationRow = {
 
 export type CompanyBar = { name: string; value: number; color: string; global?: boolean };
 
-export type Gauge = { label: string; percent: number; color: string };
+export type Gauge = { label: string; percent: number; color: string; caption?: string };
+
+export type CountryRegistration = {
+  name: string;
+  longitude: number;
+  latitude: number;
+  registrations: number;
+  color: string;
+};
 
 export type TicketSegment = {
   name: string;
@@ -40,6 +48,7 @@ export type DashboardData = {
   allocation: AllocationRow[];
   companies: CompanyBar[];
   gauges: Gauge[];
+  countries: CountryRegistration[];
   registrations: Registration[];
 };
 
@@ -146,10 +155,23 @@ export function getDashboard(): DashboardData {
     gauges: [
       { label: "Total registration", percent: 89, color: "#3ecf6e" },
       { label: "Speaker registration", percent: 24, color: "#f0434b" },
-      { label: "VVIP registration", percent: 89, color: "#3ecf6e" },
-      { label: "Standard registration", percent: 89, color: "#3ecf6e" },
-      { label: "Enhanced registration", percent: 56, color: "#f5a524" },
-      { label: "Suite registration", percent: 64, color: "#e6c547" },
+    ],
+    countries: [
+      { name: "United States", longitude: -102.6172, latitude: 40.8241, registrations: 460, color: "#7586ff" },
+      { name: "China", longitude: 108.5509, latitude: 36.0658, registrations: 440, color: "#00bbdf" },
+      { name: "India", longitude: 84.7365, latitude: 21.5521, registrations: 380, color: "#e2c600" },
+      { name: "Germany", longitude: 10.4, latitude: 51.1, registrations: 320, color: "#f65396" },
+      { name: "United Kingdom", longitude: -4.4269, latitude: 58.5668, registrations: 290, color: "#2cc27e" },
+      { name: "Japan", longitude: 138.25, latitude: 36.2, registrations: 270, color: "#fb911c" },
+      { name: "Brazil", longitude: -58.2891, latitude: -12.0268, registrations: 245, color: "#9db600" },
+      { name: "Canada", longitude: -108.3432, latitude: 59.0359, registrations: 234, color: "#dd8aff" },
+      { name: "France", longitude: 0.5269, latitude: 49.2529, registrations: 225, color: "#fcbb42" },
+      { name: "Australia", longitude: 139.13, latitude: -26.1947, registrations: 205, color: "#75adfd" },
+      { name: "Mexico", longitude: -102.5, latitude: 23.6, registrations: 190, color: "#ff8886" },
+      { name: "Korea", longitude: 127.8, latitude: 36.4, registrations: 180, color: "#ababab" },
+      { name: "Italy", longitude: 14.2321, latitude: 42.4276, registrations: 165, color: "#7586ff" },
+      { name: "Spain", longitude: -3.7, latitude: 40.2, registrations: 155, color: "#00bbdf" },
+      { name: "Indonesia", longitude: 119.4637, latitude: 0.5067, registrations: 140, color: "#e2c600" },
     ],
     // ~70% General Attendee, ~20% Enhanced, ~8% Suite, ~2% VVIP — scrambled, speaker near top
     registrations: [

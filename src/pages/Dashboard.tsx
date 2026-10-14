@@ -1,19 +1,26 @@
-import { Badge, Card, Dropdown, Scrollbar, SimpleTooltip, TextInput } from "@cake-admin/cakeand";
+import { Card, Dropdown, IconButton, Modal, Scrollbar, SimpleTooltip, TextInput } from "@cake-admin/cakeand";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import styled from "styled-components";
 import { getDashboard } from "../../server/dashboardData";
+import fullscreenIcon from "../assets/icons/fullscreen.svg";
 import insightsIcon from "../assets/icons/insights.svg";
 import nextStepsIcon from "../assets/icons/next-steps.svg";
 import techworldLockup from "../assets/icons/techworld-lockup.svg";
 import { EChart } from "../charts/EChart";
+import { GlobeChart } from "../charts/GlobeChart";
 import { allocationOption, companyOption, gaugeOption, ticketOption } from "../charts/options";
+import { GLOBAL_ACCOUNTS } from "../../server/registrationData";
 import { getGuestInfo, type GuestInfo } from "../../server/seatingData";
+import { CompanyChip } from "../components/CompanyChip";
 import { PersonChip } from "../components/PersonChip";
 import { SpeakerChip } from "../components/SpeakerChip";
+import { scrollGutter } from "../components/scrollGutter";
+import { GuestTypeChip, TagChip } from "../components/TagChip";
 import { GuestInfoPopup } from "./seating/GuestInfoPopup";
 
 const dashboard = getDashboard();
+const globalAccounts = new Set<string>(GLOBAL_ACCOUNTS);
 
 const groupSortOptions = [
   { label: "By name", value: "name" },
@@ -37,6 +44,7 @@ export function Dashboard() {
   const [groupSort, setGroupSort] = useState("name");
   const [companySort, setCompanySort] = useState("attendees");
   const [guest, setGuest] = useState<GuestInfo | null>(null);
+  const [globeOpen, setGlobeOpen] = useState(false);
 
   const allocation = useMemo(() => {
     const rows = [...dashboard.allocation];
@@ -96,44 +104,69 @@ export function Dashboard() {
           <DateBlock>
             <DateText>
               <DateDay>{data.countdown.date.replace(/\s+\d{4}$/, "")}</DateDay>
-              <DateYear>{data.countdown.date.match(/\d{4}$/)?.[0] ?? "2027"}</DateYear>
+              <DateYearRow>
+                <TimeZone>pst</TimeZone>
+                <DateYear>{data.countdown.date.match(/\d{4}$/)?.[0] ?? "2027"}</DateYear>
+              </DateYearRow>
             </DateText>
             <Block src="/brand/techworld-block.png" alt="" />
           </DateBlock>
         </Hero>
 
-        <Gauges>
-          {data.gauges.map((gauge) => (
-            <GaugeSurface key={gauge.label}>
-              <CardTitle>{gauge.label}</CardTitle>
-              <ChartFill>
-                <EChart option={gaugeOption(gauge)} label={`${gauge.label}, ${gauge.percent} percent registered`} />
-              </ChartFill>
-            </GaugeSurface>
-          ))}
-        </Gauges>
+        <TopMetrics>
+          <MapSurface>
+            <MapHead>
+              <CardTitle>Registration by country</CardTitle>
+              <IconButton
+                label="Expand registration map"
+                icon={<img src={fullscreenIcon} alt="" width={16} height={16} />}
+                size="xs"
+                intent="secondary"
+                variant="ghost"
+                onClick={() => setGlobeOpen(true)}
+              />
+            </MapHead>
+            <ChartFill>
+              <GlobeChart countries={data.countries} label="Registration by country interactive globe" />
+            </ChartFill>
+          </MapSurface>
+          <GaugeStack>
+            {data.gauges.map((gauge) => (
+              <GaugeSurface key={gauge.label}>
+                <CardTitle>{gauge.label}</CardTitle>
+                <ChartFill>
+                  <EChart option={gaugeOption(gauge)} label={`${gauge.label}, ${gauge.percent} percent registered`} />
+                </ChartFill>
+              </GaugeSurface>
+            ))}
+          </GaugeStack>
+        </TopMetrics>
 
         <InsightSurface>
           <InsightTitle>
             <img src={insightsIcon} alt="" width={18} height={18} />
             {data.insights.title}
           </InsightTitle>
-          <Copy>
-            {data.insights.body.map((run, index) =>
-              run.strong ? <strong key={index}>{run.text}</strong> : <span key={index}>{run.text}</span>,
-            )}
-          </Copy>
-          <Next>
-            <NextTitle>
-              <NextIcon src={nextStepsIcon} alt="" width={18} height={18} />
-              {data.insights.nextTitle}
-            </NextTitle>
-            <Copy>
-              {data.insights.next.map((run, index) =>
-                run.strong ? <strong key={index}>{run.text}</strong> : <span key={index}>{run.text}</span>,
-              )}
-            </Copy>
-          </Next>
+          <ScrollFill>
+            <Scrollbar maxHeight="100%">
+              <Copy>
+                {data.insights.body.map((run, index) =>
+                  run.strong ? <strong key={index}>{run.text}</strong> : <span key={index}>{run.text}</span>,
+                )}
+              </Copy>
+              <Next>
+                <NextTitle>
+                  <NextIcon src={nextStepsIcon} alt="" width={18} height={18} />
+                  {data.insights.nextTitle}
+                </NextTitle>
+                <Copy>
+                  {data.insights.next.map((run, index) =>
+                    run.strong ? <strong key={index}>{run.text}</strong> : <span key={index}>{run.text}</span>,
+                  )}
+                </Copy>
+              </Next>
+            </Scrollbar>
+          </ScrollFill>
         </InsightSurface>
 
         <TicketCard>
@@ -227,13 +260,15 @@ export function Dashboard() {
                     />
                     <Pills>
                       {item.badges.map((entry) => (
-                        <Pill key={entry.label} $tone={entry.tone}>
-                          {entry.label}
-                        </Pill>
+                        <GuestTypeChip key={entry.label} type={entry.label} />
                       ))}
                     </Pills>
                     <TooltipCell>
-                      <SimpleTooltip trigger={<Company>{item.company}</Company>} side="top" maxWidth={280}>
+                      <SimpleTooltip
+                        trigger={<CompanyChip name={item.company} global={globalAccounts.has(item.company)} />}
+                        side="top"
+                        maxWidth={280}
+                      >
                         {item.company}
                       </SimpleTooltip>
                     </TooltipCell>
@@ -242,13 +277,7 @@ export function Dashboard() {
                     ) : item.group ? (
                       <TooltipCell>
                         <SimpleTooltip
-                          trigger={
-                            <GroupChip>
-                              <Badge color="violet" tone="subtle" dot={false}>
-                                {item.group}
-                              </Badge>
-                            </GroupChip>
-                          }
+                          trigger={<TagChip color="violet">{item.group}</TagChip>}
                           side="top"
                           maxWidth={320}
                         >
@@ -268,6 +297,20 @@ export function Dashboard() {
       </Layout>
 
       {guest ? <GuestInfoPopup guest={guest} onClose={() => setGuest(null)} /> : null}
+      <Modal
+        open={globeOpen}
+        onOpenChange={setGlobeOpen}
+        title="Registration by country"
+        closeLabel="Close registration map"
+      >
+        <ModalGlobe data-globe-modal>
+          <GlobeChart
+            countries={data.countries}
+            label="Expanded registration by country interactive globe"
+            expanded
+          />
+        </ModalGlobe>
+      </Modal>
     </Page>
   );
 }
@@ -329,10 +372,12 @@ const Hero = styled(Surface)`
     grid-column: 1 / 6;
     grid-row: 1;
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    align-items: stretch;
-    gap: 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(8px, 2cqi, 24px);
     min-height: 0;
+    overflow: hidden;
+    container-type: inline-size;
   }
 `;
 
@@ -341,11 +386,15 @@ const HeroLockup = styled.div`
   align-items: center;
   align-self: center;
   justify-self: start;
+  min-width: 0;
+  max-width: 100%;
 
   > img {
     display: block;
-    height: 48px;
+    height: auto;
     width: auto;
+    max-width: 100%;
+    max-height: clamp(28px, 7cqi, 48px);
   }
 `;
 
@@ -353,22 +402,27 @@ const Countdown = styled.div`
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 16px;
+  gap: clamp(2px, 4cqi, 16px);
   align-self: center;
-  justify-self: center;
+  justify-self: stretch;
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
 `;
 
 const CountBlock = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  width: 80px;
+  gap: clamp(4px, 3cqi, 12px);
+  flex: 1 1 0;
+  min-width: 0;
 `;
 
 const CountValue = styled.span`
   font-family: "Moto Sans", sans-serif;
-  font-size: 48px;
+  font-size: clamp(16px, 12cqi, 48px);
+  white-space: nowrap;
   font-weight: 400;
   font-synthesis: none;
   line-height: 1;
@@ -378,29 +432,35 @@ const CountValue = styled.span`
 
 const CountUnit = styled.span`
   color: #d9c1d8;
-  font-size: 14px;
+  font-size: clamp(9px, 4.5cqi, 14px);
   line-height: 1;
   text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 const Colon = styled.span`
   font-family: "Moto Sans", sans-serif;
-  font-size: 64px;
+  font-size: clamp(20px, 15cqi, 64px);
   font-weight: 400;
   font-synthesis: none;
-  line-height: 1;
+  line-height: 0.8;
   color: #f1e1ed;
-  width: 36px;
+  flex: none;
   text-align: center;
 `;
 
 const DateBlock = styled.div`
   display: flex;
-  align-items: stretch;
+  align-items: center;
   justify-content: flex-end;
-  gap: 16px;
+  gap: clamp(6px, 8cqi, 16px);
+  min-width: 0;
   min-height: 0;
   height: 100%;
+  container-type: inline-size;
 `;
 
 const DateText = styled.div`
@@ -413,43 +473,92 @@ const DateText = styled.div`
   font-weight: 400;
   font-synthesis: none;
   align-self: center;
+  flex: none;
 `;
 
 const DateDay = styled.span`
-  font-size: 24px;
+  font-size: clamp(12px, 8cqi, 24px);
   line-height: 1;
   color: #f1e1ed;
+  white-space: nowrap;
+`;
+
+const DateYearRow = styled.span`
+  display: inline-flex;
+  align-items: flex-end;
+  gap: var(--space-050);
+  margin-top: -2px;
+`;
+
+const TimeZone = styled.span`
+  font-size: clamp(8px, 3.6cqi, 12px);
+  line-height: 1;
+  color: #f1e1ed;
+  text-transform: lowercase;
+  padding-bottom: 0.15em;
+  white-space: nowrap;
 `;
 
 const DateYear = styled.span`
-  font-size: 36px;
+  font-size: clamp(16px, 11cqi, 36px);
   line-height: 0.95;
-  margin-top: -2px;
   color: #d9c1d8;
   text-transform: lowercase;
+  white-space: nowrap;
 `;
 
 const Block = styled.img`
-  height: 100%;
+  flex: 0 1 72px;
+  min-width: 0;
   width: auto;
+  height: auto;
+  max-height: 70%;
   max-width: 72px;
   object-fit: contain;
   object-position: right center;
 `;
 
-const Gauges = styled.div`
+const TopMetrics = styled.div`
   grid-column: 6 / 9;
   grid-row: 1 / 4;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-300);
+  min-height: 0;
+`;
+
+const MapSurface = styled(Surface)`
+  && {
+    gap: var(--space-300);
+  }
+`;
+
+const MapHead = styled.div`
+  display: flex;
+  align-items: center;
+  gap: var(--space-050);
+  flex: none;
+  min-width: 0;
+
+  h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+`;
+
+const GaugeStack = styled.div`
+  display: grid;
   grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: var(--space-300);
   min-height: 0;
+`;
 
-  > * {
-    min-height: 0;
-    height: 100%;
-  }
+const ModalGlobe = styled.div`
+  width: 100%;
+  height: calc(100vh - var(--space-800) * 3);
+  min-height: 0;
 `;
 
 const GaugeSurface = styled(Surface)`
@@ -462,6 +571,7 @@ const InsightSurface = styled(Surface)`
   && {
     grid-column: 1 / 3;
     grid-row: 2 / 4;
+    overflow: hidden;
     background: linear-gradient(
       21.57deg,
       rgba(238, 103, 43, 0.15) 0%,
@@ -506,6 +616,8 @@ const InsightTitle = styled.h2`
   align-items: center;
   gap: 8px;
   margin: 0 0 12px;
+  flex: none;
+  min-width: 0;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.1px;
@@ -558,9 +670,13 @@ const Copy = styled.p`
 
 const CardTitle = styled.h2`
   margin: 0;
+  min-width: 0;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 const CardHead = styled.div`
@@ -570,6 +686,11 @@ const CardHead = styled.div`
   gap: 12px;
   margin-bottom: 8px;
   flex: none;
+  min-width: 0;
+
+  > h2 {
+    flex: 1 1 auto;
+  }
 `;
 
 const TicketRow = styled.div`
@@ -617,7 +738,8 @@ const ChartScroll = styled.div<{ $height: number }>`
 const ScrollFill = styled.div`
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
+  ${scrollGutter}
 
   > * {
     height: 100%;
@@ -650,9 +772,10 @@ const Swatch = styled.span<{ $color: string }>`
 `;
 
 const DropdownWrap = styled.div`
-  width: 168px;
+  width: auto;
   max-width: 168px;
-  flex: none;
+  min-width: 0;
+  flex: 0 1 168px;
 
   label {
     display: none;
@@ -661,6 +784,7 @@ const DropdownWrap = styled.div`
   button {
     width: 100%;
     max-width: 100%;
+    min-width: 0;
     height: 32px;
     min-height: 32px;
     padding-block: 0;
@@ -683,7 +807,14 @@ const DropdownWrap = styled.div`
 `;
 
 const SearchWrap = styled.div`
-  width: 220px;
+  width: auto;
+  max-width: 220px;
+  min-width: 0;
+  flex: 1 1 140px;
+
+  input {
+    min-width: 0;
+  }
 `;
 
 const Table = styled.div`
@@ -693,11 +824,16 @@ const Table = styled.div`
 
 const Row = styled.div`
   display: grid;
-  grid-template-columns: minmax(90px, 1.1fr) minmax(110px, 1.2fr) minmax(70px, 0.8fr) minmax(80px, 1.4fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 1.4fr);
   gap: 8px;
   align-items: center;
   min-height: 32px;
   padding: 4px 8px;
+
+  > * {
+    min-width: 0;
+    overflow: hidden;
+  }
 
   &:nth-child(even) {
     background: rgba(255, 255, 255, 0.1);
@@ -706,29 +842,10 @@ const Row = styled.div`
 
 const Pills = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
-`;
-
-const guestTone = {
-  general: { color: "#c5d4ff", background: "#1e2a4a" },
-  enhanced: { color: "#b8ecd0", background: "#143528" },
-  suite: { color: "#ffb599", background: "#3a1f18" },
-  vvip: { color: "#f0e6a8", background: "#3a3420" },
-} as const;
-
-const Pill = styled.span<{ $tone: keyof typeof guestTone }>`
-  display: inline-flex;
-  align-items: center;
-  padding: 0 8px;
-  border-radius: 64px;
-  background: ${(props) => guestTone[props.$tone].background};
-  color: ${(props) => guestTone[props.$tone].color};
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  line-height: 18px;
-  white-space: nowrap;
+  min-width: 0;
+  overflow: hidden;
 `;
 
 const TooltipCell = styled.div`
@@ -750,35 +867,6 @@ const TooltipCell = styled.div`
     font: inherit;
     text-align: left;
     cursor: default;
-  }
-`;
-
-const Company = styled.span`
-  display: block;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 6px;
-  border-radius: 64px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 12px;
-  font-weight: 700;
-`;
-
-const GroupChip = styled.div`
-  width: fit-content;
-  max-width: min(200px, 100%);
-  min-width: 0;
-
-  > * {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    background: color-mix(in srgb, var(--color-badge-violet) 32%, transparent) !important;
-    color: var(--color-badge-violet) !important;
   }
 `;
 

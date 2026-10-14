@@ -1,11 +1,16 @@
-import { Badge, IconButton } from "@cake-admin/cakeand";
+import { IconButton } from "@cake-admin/cakeand";
 import { Copy, X } from "lucide-react";
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import styled from "styled-components";
 import type { GuestInfo } from "../../../server/seatingData";
 import accountCircle from "../../assets/icons/custom/account_circle.svg";
+import { GLOBAL_ACCOUNTS } from "../../../server/registrationData";
+import { CompanyChip } from "../../components/CompanyChip";
 import { LocationChip } from "../../components/LocationChip";
+import { TagChip } from "../../components/TagChip";
+
+const globalAccounts = new Set<string>(GLOBAL_ACCOUNTS);
 
 type GuestInfoPopupProps = {
   guest: GuestInfo;
@@ -82,64 +87,47 @@ export function GuestInfoPopup({ guest, onClose }: GuestInfoPopupProps) {
 
           <InfoCard>
             <FieldLabel>Guest package</FieldLabel>
-            <HugBadge
-              color={guest.packageColor === "jade" ? "jade" : "green"}
-              tone="subtle"
-              dot={false}
-              title={guest.packageLabel}
-            >
-              {guest.packageLabel}
-            </HugBadge>
+            <TagChip color={guest.packageColor === "jade" ? "jade" : "green"}>{guest.packageLabel}</TagChip>
           </InfoCard>
 
           <InfoCard>
             <FieldLabel>Receptions attending:</FieldLabel>
             {guest.receptions.map((item) => (
-              <HugBadge key={item} color="cyan" tone="subtle" dot={false} title={item}>
+              <TagChip key={item} color="cyan">
                 {item}
-              </HugBadge>
+              </TagChip>
             ))}
           </InfoCard>
 
           <InfoCard $span2>
             <FieldLabel>Company</FieldLabel>
             <Inline>
-              <NeutralPill title={guest.company}>{guest.company}</NeutralPill>
-              <HugBadge color="blue" tone="subtle" dot={false} title={guest.companyRegistered}>
-                {guest.companyRegistered}
-              </HugBadge>
+              <CompanyChip name={guest.company} global={globalAccounts.has(guest.company)} />
+              <TagChip color="blue">{guest.companyRegistered}</TagChip>
             </Inline>
           </InfoCard>
 
           <InfoCard $span2>
             <FieldLabel>Guest group</FieldLabel>
             <Inline>
-              <HugBadge color="purple" tone="subtle" dot={false} title={guest.group}>
-                {guest.group}
-              </HugBadge>
-              <HugBadge color="green" tone="subtle" dot={false} title={guest.groupProgress}>
-                {guest.groupProgress}
-              </HugBadge>
+              <TagChip color="purple">{guest.group}</TagChip>
+              <TagChip color="green">{guest.groupProgress}</TagChip>
             </Inline>
           </InfoCard>
 
           <InfoCard $span2>
             <FieldLabel>Seating</FieldLabel>
             <Inline>
-              <HugBadge color="violet" tone="subtle" dot={false} title={guest.seatingSection}>
-                {guest.seatingSection}
-              </HugBadge>
-              <HugBadge color="amber" tone="subtle" dot={false} title={guest.seatingFill}>
-                {guest.seatingFill}
-              </HugBadge>
+              <TagChip color="violet">{guest.seatingSection}</TagChip>
+              <TagChip color="amber">{guest.seatingFill}</TagChip>
             </Inline>
             <AlongCard>
               <AlongLabel>Along with:</AlongLabel>
               <AlongPills>
                 {guest.alongWith.map((group) => (
-                  <HugBadge key={group} color="purple" tone="subtle" dot={false} title={group}>
-                    <AlongPillLabel>{group}</AlongPillLabel>
-                  </HugBadge>
+                  <TagChip key={group} color="purple">
+                    {group}
+                  </TagChip>
                 ))}
               </AlongPills>
             </AlongCard>
@@ -247,26 +235,6 @@ const InfoCard = styled(DarkCard)<{ $span2?: boolean }>`
   align-items: flex-start;
 `;
 
-const HugBadge = styled(Badge)`
-  && {
-    display: inline-flex;
-    align-self: flex-start;
-    width: fit-content;
-    max-width: 100%;
-    min-width: 0;
-    height: 16px;
-    min-height: 16px;
-    padding: 0 var(--space-050);
-    font-size: var(--type-size-caption);
-    font-weight: var(--font-weight-bold);
-    letter-spacing: 0.2px;
-    line-height: 1.35;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-`;
-
 const ProfileTop = styled.div`
   display: flex;
   align-items: flex-start;
@@ -346,25 +314,6 @@ const Inline = styled.div`
   min-width: 0;
 `;
 
-const NeutralPill = styled.span`
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  min-width: 0;
-  padding: 0 var(--space-050);
-  border-radius: var(--radius-1000);
-  background: rgba(255, 255, 255, 0.12);
-  font-size: var(--type-size-caption);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.2px;
-  line-height: 1.35;
-  color: var(--color-text-icon-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
 const AlongCard = styled.div`
   display: flex;
   flex-direction: column;
@@ -396,13 +345,6 @@ const AlongPills = styled.div`
   > * {
     max-width: 100%;
   }
-`;
-
-const AlongPillLabel = styled.span`
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 `;
 
 const NoteBlock = styled.div`

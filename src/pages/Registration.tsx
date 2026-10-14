@@ -1,5 +1,4 @@
 import {
-  Badge,
   Divider,
   IconButton,
   MenuContainer,
@@ -8,6 +7,7 @@ import {
   Modal,
   ModalContent,
   ModalFooter,
+  Scrollbar,
   TextInput,
 } from "@cake-admin/cakeand";
 import { ChevronDown, Search, Trash2 } from "lucide-react";
@@ -17,13 +17,16 @@ import arrowDownIcon from "../assets/icons/custom/arrow_down.svg";
 import arrowUpIcon from "../assets/icons/custom/arrow_up.svg";
 import filterIcon from "../assets/icons/custom/filter_alt.svg";
 import listviewIcon from "../assets/icons/custom/listview.svg";
+import micHeaderIcon from "../assets/icons/custom/mic-header.svg";
 import starIcon from "../assets/icons/custom/star.svg";
 import starOutlineIcon from "../assets/icons/custom/star_outline.svg";
 import { getGuestInfo, type GuestInfo } from "../../server/seatingData";
 import { CompanyChip } from "../components/CompanyChip";
 import { LocationChip } from "../components/LocationChip";
 import { PersonChip } from "../components/PersonChip";
+import { scrollGutter } from "../components/scrollGutter";
 import { SpeakerChip } from "../components/SpeakerChip";
+import { GuestTypeChip, TagChip } from "../components/TagChip";
 import {
   GUEST_GROUPS,
   GUEST_TYPES,
@@ -91,13 +94,6 @@ function cellValue(row: RegistrationRow, key: ColumnKey): string {
   return String(row[key]);
 }
 
-function guestTypeColor(type: GuestType): "blue" | "jade" | "orange" | "yellow" {
-  if (type === "General Attendee") return "blue";
-  if (type === "Enhanced Guest") return "jade";
-  if (type === "Suite Guest") return "orange";
-  return "yellow";
-}
-
 function isGuestType(value: string): value is GuestType {
   return (GUEST_TYPES as readonly string[]).includes(value);
 }
@@ -125,11 +121,7 @@ function GroupHeaderChip({
   onPersonClick?: (name: string) => void;
 }) {
   if (column === "guestType" && isGuestType(label)) {
-    return (
-      <LabelBadge color={guestTypeColor(label)} tone="subtle" dot={false}>
-        {label}
-      </LabelBadge>
-    );
+    return <GuestTypeChip type={label} />;
   }
 
   if (column === "company") {
@@ -139,20 +131,12 @@ function GroupHeaderChip({
   }
 
   if (column === "receptions") {
-    return (
-      <LabelBadge color="cyan" tone="subtle" dot={false}>
-        {label}
-      </LabelBadge>
-    );
+    return <TagChip color="cyan">{label}</TagChip>;
   }
 
   if (column === "guestGroup") {
     if (label === "Speakers") return <SpeakerChip iconSize={ICON_PT} />;
-    return (
-      <LabelBadge color="violet" tone="subtle" dot={false}>
-        {label}
-      </LabelBadge>
-    );
+    return <TagChip color="violet">{label}</TagChip>;
   }
 
   if (column === "region") {
@@ -169,11 +153,7 @@ function GroupHeaderChip({
     );
   }
 
-  return (
-    <LabelBadge color="violet" tone="subtle" dot={false}>
-      {label}
-    </LabelBadge>
-  );
+  return <TagChip color="violet">{label}</TagChip>;
 }
 
 export function Registration() {
@@ -320,6 +300,19 @@ export function Registration() {
     });
   }
 
+  const speakersOnly =
+    filters.guestGroup?.length === 1 && filters.guestGroup[0] === "Speakers";
+
+  function toggleSpeakersOnly() {
+    setFilters((prev) => {
+      const only = prev.guestGroup?.length === 1 && prev.guestGroup[0] === "Speakers";
+      const next = { ...prev };
+      if (only) delete next.guestGroup;
+      else next.guestGroup = ["Speakers"];
+      return next;
+    });
+  }
+
   function toggleFilterValue(column: ColumnKey, value: string) {
     setFilters((prev) => {
       const current = new Set(prev[column] ?? []);
@@ -380,15 +373,11 @@ export function Registration() {
           {row.speaker ? (
             <SpeakerChip iconSize={ICON_PT} />
           ) : (
-            <LabelBadge color="violet" tone="subtle" dot={false}>
-              {row.guestGroup}
-            </LabelBadge>
+            <TagChip color="violet">{row.guestGroup}</TagChip>
           )}
         </Cell>
         <Cell $pad>
-          <LabelBadge color={guestTypeColor(row.guestType)} tone="subtle" dot={false}>
-            {row.guestType}
-          </LabelBadge>
+          <GuestTypeChip type={row.guestType} />
         </Cell>
         <Cell $pad>
           <LocationChip label={row.region} iconSize={ICON_PT} />
@@ -405,9 +394,9 @@ export function Registration() {
         <Cell $pad>
           <Receptions>
             {row.receptions.map((item) => (
-              <LabelBadge key={item} color="cyan" tone="subtle" dot={false}>
+              <TagChip key={item} color="cyan">
                 {item}
-              </LabelBadge>
+              </TagChip>
             ))}
           </Receptions>
         </Cell>
@@ -491,7 +480,7 @@ export function Registration() {
                 </MenuPop>
               ) : null}
             </ViewWrap>
-            <Updated>Last updated: 3 mins ago</Updated>
+            <Updated>Last updated: Oct 14, 2026, 5:00 PM</Updated>
           </Toolbar>
 
           <ColumnHeaderRow role="row">
@@ -518,6 +507,8 @@ export function Registration() {
               const isFiltered =
                 (filters[column.key]?.length ?? 0) > 0 ||
                 (column.key === "company" && globalAccountsOnly);
+              const filterButtonActive =
+                isFiltered && !(column.key === "guestGroup" && speakersOnly);
               return (
                 <HeaderCell key={column.key} role="columnheader" $active={isSorted || isGrouped || isFiltered}>
                   <HeaderTop>
@@ -540,13 +531,32 @@ export function Registration() {
                     </HeaderAction>
                     <HeaderLabel>{column.label}</HeaderLabel>
                     <HeaderActions>
-                      <HeaderAction $active={isFiltered}>
+                      {column.key === "guestGroup" ? (
+                        <HeaderAction $active={speakersOnly} $tone="jade">
+                          <IconButton
+                            size="xs"
+                            variant="ghost"
+                            intent="secondary"
+                            label={speakersOnly ? "Show all guest groups" : "Show speakers only"}
+                            aria-pressed={speakersOnly}
+                            icon={
+                              <HeaderGlyph
+                                $src={micHeaderIcon}
+                                $size={16}
+                                $ink={speakersOnly ? "inverse" : undefined}
+                              />
+                            }
+                            onClick={toggleSpeakersOnly}
+                          />
+                        </HeaderAction>
+                      ) : null}
+                      <HeaderAction $active={filterButtonActive}>
                         <IconButton
                           size="xs"
                           variant="ghost"
                           intent="secondary"
                           label={`Filter ${column.label}`}
-                          icon={<HeaderGlyph $src={filterIcon} $active={isFiltered} />}
+                          icon={<HeaderGlyph $src={filterIcon} $active={filterButtonActive} />}
                           onClick={() =>
                             setMenu((prev) =>
                               prev.kind === "filter" && prev.column === column.key
@@ -673,8 +683,9 @@ export function Registration() {
         </HeaderSurface>
 
         <BodyScroll role="table" aria-label="Registration tracker">
-          {groups
-            ? groups.flatMap(([label, rows], groupIndex) => {
+          <Scrollbar maxHeight="100%">
+            {groups
+              ? groups.flatMap(([label, rows], groupIndex) => {
                 const collapsed = collapsedGroups.has(label);
                 const stats = groupStats(rows);
                 return [
@@ -720,7 +731,8 @@ export function Registration() {
                       ]),
                 ];
               })
-            : filtered.map((row, index) => renderRow(row, index))}
+              : filtered.map((row, index) => renderRow(row, index))}
+          </Scrollbar>
         </BodyScroll>
       </Card>
 
@@ -896,15 +908,20 @@ const HeaderActions = styled.div`
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0;
+  gap: var(--space-025);
   flex: none;
 `;
 
-/** Primary indigo active chip; icons use on-tonal */
-const HeaderAction = styled.span<{ $active?: boolean }>`
+/** Primary indigo active chip; the speaker toggle uses the solid jade badge. */
+const HeaderAction = styled.span<{ $active?: boolean; $tone?: "jade" }>`
   display: inline-flex;
   border-radius: var(--radius-1000);
-  background: ${(props) => (props.$active ? "var(--color-primary-primary)" : "transparent")};
+  background: ${(props) =>
+    props.$active
+      ? props.$tone === "jade"
+        ? "var(--color-badge-jade)"
+        : "var(--color-primary-primary)"
+      : "transparent"};
 
   && button {
     background: transparent !important;
@@ -912,14 +929,21 @@ const HeaderAction = styled.span<{ $active?: boolean }>`
 `;
 
 /** Tintable glyph via mask — active uses dark indigo on-tonal on primary. */
-const HeaderGlyph = styled.span<{ $src: string; $active?: boolean }>`
+const HeaderGlyph = styled.span<{
+  $src: string;
+  $active?: boolean;
+  $size?: number;
+  $ink?: "inverse";
+}>`
   display: block;
-  width: ${ICON_PT}px;
-  height: ${ICON_PT}px;
+  width: ${(props) => props.$size ?? ICON_PT}px;
+  height: ${(props) => props.$size ?? ICON_PT}px;
   background: ${(props) =>
-    props.$active
-      ? "var(--color-text-icon-on-tonal-inverse)"
-      : "var(--color-text-icon-primary)"};
+    props.$ink === "inverse"
+      ? "var(--color-text-icon-inverse)"
+      : props.$active
+        ? "var(--color-text-icon-on-tonal-inverse)"
+        : "var(--color-text-icon-primary)"};
   -webkit-mask-image: url(${(props) => JSON.stringify(props.$src)});
   mask-image: url(${(props) => JSON.stringify(props.$src)});
   -webkit-mask-size: contain;
@@ -947,10 +971,16 @@ const ColumnSearch = styled(TextInput)`
 const BodyScroll = styled.div`
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: var(--space-100) var(--space-500) var(--space-500);
   display: flex;
   flex-direction: column;
+  ${scrollGutter}
+
+  > * {
+    flex: 1;
+    min-height: 0;
+  }
 `;
 
 const DataRow = styled.div<{ $stripe?: boolean }>`
@@ -1025,26 +1055,6 @@ const GroupChildren = styled.div`
   flex-direction: column;
   padding-left: var(--space-500);
   width: 100%;
-`;
-
-const LabelBadge = styled(Badge)`
-  && {
-    display: inline-flex;
-    justify-self: start;
-    width: fit-content;
-    max-width: 100%;
-    min-width: 0;
-    height: 16px;
-    min-height: 16px;
-    padding: 0 var(--space-050);
-    font-size: var(--type-size-caption);
-    font-weight: var(--font-weight-bold);
-    letter-spacing: 0.2px;
-    line-height: 1.35;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
 `;
 
 const JobTitle = styled.span`

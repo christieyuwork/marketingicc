@@ -32,6 +32,11 @@ select {
   font-family: "Rookery New", Rookery, "Noto Sans", system-ui, sans-serif;
 }
 
+[role="dialog"]:has([data-globe-modal]) {
+  width: calc(100vw - var(--space-800) * 2);
+  max-width: calc(100vw - var(--space-800) * 2);
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

@@ -9,11 +9,28 @@ export type SectionCell = {
   groups: string[];
 };
 
+export const SUITE_OWNERS = [
+  { id: "gina", name: "Gina Qiao" },
+  { id: "exec-2", name: "Executive #2" },
+  { id: "exec-3", name: "Executive #3" },
+  { id: "exec-4", name: "Executive #4" },
+  { id: "exec-5", name: "Executive #5" },
+  { id: "exec-6", name: "Executive #6" },
+] as const;
+
+export type SuiteOwnerId = (typeof SUITE_OWNERS)[number]["id"];
+
+export const SUITE_FILTER_OPTIONS = [
+  { label: "All suites", value: "all" },
+  ...SUITE_OWNERS.map((owner) => ({ label: `${owner.name}'s suites`, value: owner.id })),
+];
+
 export type SuiteCell = {
   id: string;
   label: string;
   level: FillLevel;
   levelLabel: string;
+  ownerId: SuiteOwnerId;
   suiteName: string;
   suiteLead: string;
   filled: number;
@@ -30,7 +47,26 @@ export type TicketSegment = {
   legend: boolean;
 };
 
-export type Gauge = { label: string; percent: number; color: string };
+export type Gauge = { label: string; percent: number; color: string; caption?: string };
+
+export type GapRow = { id: string; label: string; percent: number };
+
+function fillPercent(filled: number, capacity: number) {
+  return capacity > 0 ? Math.round((filled / capacity) * 100) : 0;
+}
+
+function byLowestFill<T extends { label: string; filled: number; capacity: number }>(rows: T[]) {
+  return [...rows]
+    .filter((row) => {
+      const level = (row as { level?: FillLevel }).level;
+      return level === "yellow" || level === "amber";
+    })
+    .sort(
+      (a, b) =>
+        fillPercent(a.filled, a.capacity) - fillPercent(b.filled, b.capacity) ||
+        a.label.localeCompare(b.label, undefined, { numeric: true }),
+    );
+}
 
 const FILL: Record<FillLevel, string> = {
   green: "#67bf49",
@@ -61,6 +97,52 @@ function section(
   };
 }
 
+const SUITE_LEADS = [
+  "Aimee Foskie",
+  "Jordan Hale",
+  "Priya Shah",
+  "Marcus Bell",
+  "Elena Vos",
+  "Naomi Park",
+  "Luis Ortega",
+  "Chris Dalton",
+];
+
+const SUITE_GUEST_POOL: Array<Omit<SuiteSeatRow, "seat" | "seatType">> = [
+  { name: "Maya Whitford", role: "Head of Marketing", company: "Microsoft", companyTone: "lime", group: "Europe + META (Retailers)" },
+  { name: "Wei Lin", role: "Software Lead", company: "Microsoft", companyTone: "lime", group: "China Geo (Customers and Partners)" },
+  { name: "Clara Beaumont", role: "Head of Marketing", company: "Dell", companyTone: "neutral", group: "ROW Invited Media & Analysts" },
+  { name: "Sophie Langley", role: "Keynote Speaker", company: "Microsoft", companyTone: "lime", speaker: true },
+  { name: "Julian Mercer", role: "Director of Sales", company: "Apple", companyTone: "neutral", group: "NA (General)" },
+  { name: "Lena Ashford", role: "Partner Manager", company: "Dell", companyTone: "neutral", group: "Europe + META (Retailers)" },
+  { name: "Nora Ellison", role: "Executive Director", company: "NVIDIA", companyTone: "lime", group: "ROW Invited Media & Analysts" },
+  { name: "Kenji Nakamura", role: "Product Strategist", company: "Samsung", companyTone: "lime", group: "China Geo (Customers and Partners)" },
+  { name: "Amara Okonkwo", role: "VP Partnerships", company: "OpenAI", companyTone: "lime", group: "NA (Hosted)" },
+  { name: "Sienna Pratt", role: "Design Lead", company: "Apple", companyTone: "neutral", group: "Europe + META (Hosted)" },
+  { name: "Caleb Nguyen", role: "Solutions Architect", company: "Dell", companyTone: "neutral", group: "AP (General)" },
+  { name: "Freya Lindstrom", role: "Research Analyst", company: "Microsoft", companyTone: "lime", group: "ROW Invited Media & Analysts" },
+  { name: "Mateo Ruiz", role: "Regional Manager", company: "Samsung", companyTone: "lime", group: "LATAM (Hosted)" },
+  { name: "Mira Solano", role: "Growth Lead", company: "Oppo", companyTone: "neutral", group: "Digital Commerce Organization" },
+  { name: "Zoe Cartwright", role: "Brand Director", company: "Huawei", companyTone: "neutral", group: "Europe + META (Retailers)" },
+  { name: "Sebastian Cole", role: "Engineering Manager", company: "Microsoft", companyTone: "lime", group: "SSG" },
+  { name: "Felix Ortega", role: "Account Executive", company: "Dell", companyTone: "neutral", group: "NA (General)" },
+  { name: "Omar Haddad", role: "Cloud Architect", company: "NVIDIA", companyTone: "lime", group: "China Geo (Customers and Partners)" },
+  { name: "Hugo Berg", role: "Media Relations", company: "Apple", companyTone: "neutral", group: "ROW Invited Media & Analysts" },
+  { name: "Anika Desai", role: "Program Manager", company: "Microsoft", companyTone: "lime", group: "AP (General)" },
+  { name: "Priya Nair", role: "Operations Lead", company: "Samsung", companyTone: "lime", group: "ISG" },
+  { name: "Ethan Blake", role: "AI Researcher", company: "OpenAI", companyTone: "lime", group: "GTP" },
+  { name: "Sofia Reyes", role: "Chief of Staff", company: "Dell", companyTone: "neutral", group: "CEO Office Guests" },
+  { name: "Elena Petrova", role: "Investor Relations", company: "Apple", companyTone: "neutral", group: "CFO - Investors and Financial Community" },
+  { name: "Jonah Pierce", role: "Keynote Speaker", company: "NVIDIA", companyTone: "lime", speaker: true },
+  { name: "Harper Quinn", role: "Events Producer", company: "Samsung", companyTone: "lime", group: "NA (Hosted)" },
+  { name: "Ibrahim Yusuf", role: "Alliance Manager", company: "Microsoft", companyTone: "lime", group: "Global Operations - Global Alliance" },
+  { name: "Chloe Winters", role: "Counsel", company: "Dell", companyTone: "neutral", group: "Legal Org" },
+];
+
+function guestAt(suiteNumber: number, index: number) {
+  return SUITE_GUEST_POOL[(suiteNumber * 7 + index) % SUITE_GUEST_POOL.length]!;
+}
+
 function suite(
   n: number,
   level: FillLevel,
@@ -68,28 +150,20 @@ function suite(
 ): SuiteCell {
   const filled = opts.filled ?? (level === "red" ? 108 : level === "amber" ? 48 : level === "yellow" ? 62 : 78);
   const capacity = opts.capacity ?? 112;
+  const owner = SUITE_OWNERS[(n * 5 + 1) % SUITE_OWNERS.length]!;
+  const attendees = Array.from({ length: 8 }, (_, index) => guestAt(n, index).name);
   return {
     id: `suite-${n}`,
     label: `Suite ${n}`,
     level,
     levelLabel: opts.levelLabel ?? "Level 3",
-    suiteName: opts.suiteName ?? "Gina Qiao’s suite",
-    suiteLead: opts.suiteLead ?? "Aimee Foskie",
+    ownerId: opts.ownerId ?? owner.id,
+    suiteName: opts.suiteName ?? `${owner.name}'s suite`,
+    suiteLead: opts.suiteLead ?? SUITE_LEADS[n % SUITE_LEADS.length]!,
     filled,
     capacity,
-    attendees:
-      opts.attendees ??
-      [
-        "Wei Lin",
-        "Clara Beaumont",
-        "Lena Ashford",
-        "Clara Beaumont",
-        "Julian Mercer",
-        "Lena Ashford",
-        "Julian Mercer",
-        "Lena Ashford",
-      ],
-    moreCount: opts.moreCount ?? 8,
+    attendees: opts.attendees ?? attendees,
+    moreCount: opts.moreCount ?? 4 + (n % 7),
   };
 }
 
@@ -299,43 +373,15 @@ export function getGuestInfo(name: string): GuestInfo {
   };
 }
 
-const SUITE_GUEST_POOL: Array<Omit<SuiteSeatRow, "seat" | "seatType">> = [
-  { name: "Maya Whitford", role: "Head of Marketing", company: "Microsoft", companyTone: "lime", group: "Europe + META (Retailers)" },
-  { name: "Wei Lin", role: "Software Lead", company: "Microsoft", companyTone: "lime", group: "China Geo (Customers and Partners)" },
-  { name: "Clara Beaumont", role: "Head of Marketing", company: "Dell", companyTone: "neutral", group: "ROW Invited Media & Analysts" },
-  { name: "Sophie Langley", role: "Keynote Speaker", company: "Microsoft", companyTone: "lime", speaker: true },
-  { name: "Julian Mercer", role: "Director of Sales", company: "Apple", companyTone: "neutral", group: "NA (General)" },
-  { name: "Lena Ashford", role: "Partner Manager", company: "Dell", companyTone: "neutral", group: "Europe + META (Retailers)" },
-  { name: "Nora Ellison", role: "Executive Director", company: "NVIDIA", companyTone: "lime", group: "ROW Invited Media & Analysts" },
-  { name: "Kenji Nakamura", role: "Product Strategist", company: "Samsung", companyTone: "lime", group: "China Geo (Customers and Partners)" },
-  { name: "Amara Okonkwo", role: "VP Partnerships", company: "OpenAI", companyTone: "lime", group: "NA (Hosted)" },
-  { name: "Sienna Pratt", role: "Design Lead", company: "Apple", companyTone: "neutral", group: "Europe + META (Hosted)" },
-  { name: "Caleb Nguyen", role: "Solutions Architect", company: "Dell", companyTone: "neutral", group: "AP (General)" },
-  { name: "Freya Lindstrom", role: "Research Analyst", company: "Microsoft", companyTone: "lime", group: "ROW Invited Media & Analysts" },
-  { name: "Mateo Ruiz", role: "Regional Manager", company: "Samsung", companyTone: "lime", group: "LATAM (Hosted)" },
-  { name: "Mira Solano", role: "Growth Lead", company: "Oppo", companyTone: "neutral", group: "Digital Commerce Organization" },
-  { name: "Zoe Cartwright", role: "Brand Director", company: "Huawei", companyTone: "neutral", group: "Europe + META (Retailers)" },
-  { name: "Sebastian Cole", role: "Engineering Manager", company: "Microsoft", companyTone: "lime", group: "SSG" },
-  { name: "Felix Ortega", role: "Account Executive", company: "Dell", companyTone: "neutral", group: "NA (General)" },
-  { name: "Omar Haddad", role: "Cloud Architect", company: "NVIDIA", companyTone: "lime", group: "China Geo (Customers and Partners)" },
-  { name: "Hugo Berg", role: "Media Relations", company: "Apple", companyTone: "neutral", group: "ROW Invited Media & Analysts" },
-  { name: "Anika Desai", role: "Program Manager", company: "Microsoft", companyTone: "lime", group: "AP (General)" },
-  { name: "Priya Nair", role: "Operations Lead", company: "Samsung", companyTone: "lime", group: "ISG" },
-  { name: "Ethan Blake", role: "AI Researcher", company: "OpenAI", companyTone: "lime", group: "GTP" },
-  { name: "Sofia Reyes", role: "Chief of Staff", company: "Dell", companyTone: "neutral", group: "CEO Office Guests" },
-  { name: "Elena Petrova", role: "Investor Relations", company: "Apple", companyTone: "neutral", group: "CFO - Investors and Financial Community" },
-];
-
-/** 24 seats matching room config: 18 haptic + 6 barstool. */
-const SUITE_12_SEATS: SuiteSeatRow[] = SUITE_GUEST_POOL.map((guest, index) => ({
-  seat: index + 1,
-  seatType: index < 18 ? "haptic" : "barstool",
-  ...guest,
-}));
-
 export function getSuiteDetail(cell: SuiteCell): SuiteDetail {
+  const suiteNumber = Number(cell.label.replace(/\D/g, "")) || 12;
+  const seats: SuiteSeatRow[] = Array.from({ length: 24 }, (_, index) => ({
+    seat: index + 1,
+    seatType: index < 18 ? "haptic" : "barstool",
+    ...guestAt(suiteNumber, index),
+  }));
   return {
-    suiteNumber: Number(cell.label.replace(/\D/g, "")) || 12,
+    suiteNumber,
     levelLabel: cell.levelLabel,
     suiteName: cell.suiteName,
     suiteLead: cell.suiteLead,
@@ -344,14 +390,14 @@ export function getSuiteDetail(cell: SuiteCell): SuiteDetail {
     totalSeats: 24,
     hapticSeats: 18,
     barstoolSeats: 6,
-    seats: SUITE_12_SEATS,
+    seats,
   };
 }
 
 export function getSeating() {
   return {
     notice: "Seating chart data will be available ~2 weeks prior to event.",
-    updated: "Last updated: 3 mins ago",
+    updated: "Last updated: Oct 14, 2026, 5:00 PM",
     ticket: {
       totalLabel: "Total: 4158",
       percentLabel: "81% of target",
@@ -364,13 +410,32 @@ export function getSeating() {
         { name: "VVIP", count: 23, share: 21, color: "#dcc652", legend: true },
       ] satisfies TicketSegment[],
     },
-    gauges: [
-      { label: "Standard registration", percent: 89, color: "#3ecf6e" },
-      { label: "Suite registration", percent: 64, color: "#e6c547" },
-      { label: "Enhanced registration", percent: 56, color: "#f5a524" },
-      { label: "VVIP registration", percent: 89, color: "#3ecf6e" },
-      { label: "Speaker registration", percent: 24, color: "#f0434b" },
-    ] satisfies Gauge[],
+    summary: {
+      sectionsFilled: {
+        label: "Sections fully filled",
+        percent: 89,
+        color: "#3ecf6e",
+        caption: "of sections",
+      },
+      suitesFilled: {
+        label: "Suites fully filled",
+        percent: 64,
+        color: "#e6c547",
+        caption: "of suites",
+      },
+      totalRegistration: {
+        label: "Total registration",
+        percent: 89,
+        color: "#3ecf6e",
+        caption: "Registered",
+      },
+    } satisfies Record<string, Gauge>,
+    sectionsNotFilled: byLowestFill(SECTION_COLUMNS.flat()).map((cell) => ({
+      id: cell.id,
+      label: cell.label,
+      percent: fillPercent(cell.filled, cell.capacity),
+    })) satisfies GapRow[],
+    suitesNotFilled: byLowestFill([...SUITE_LEFT, ...SUITE_RIGHT]),
     sectionColumns: SECTION_COLUMNS,
     suiteLeft: SUITE_LEFT,
     suiteRight: SUITE_RIGHT,
