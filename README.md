@@ -1,42 +1,42 @@
-# cake& prototype
+# Marketing ICC
 
-A ready-to-run Vite + React + TypeScript app wired to the cake& design system.
-**No GitHub token, no `.npmrc`, no registry setup.**
-
-You need [Node.js](https://nodejs.org/) (LTS). That gives you `npm`. Open a
-terminal and run the steps below. A slower, plain-language walkthrough is on
-the Storybook [Introduction](https://cake.lenovo.com/storybook/?path=/docs/introduction--docs).
+Lenovo Marketing ICC prototype — Dashboard, Registration, and Seating — built
+with Vite, React, TypeScript, and the **cake&** design system.
 
 ## Start
 
+You need [Node.js](https://nodejs.org/) (LTS).
+
 ```bash
-npx degit cake-admin/cakev2/starter my-prototype
-cd my-prototype
 npm install
 npm run dev
 ```
 
-If `degit` gives you trouble (it is unmaintained), either of these works:
+Then open the URL Vite prints (usually `http://localhost:5173`).
+
+| Route | Page |
+| --- | --- |
+| `/` | Dashboard — gauges, allocation, registrations list |
+| `/registration` | Registration tracker — filter, sort, group, saved views |
+| `/seating` | Seating maps — section/suite fill, guest & suite popups |
 
 ```bash
-npx giget@latest gh:cake-admin/cakev2/starter my-prototype
-git clone --depth 1 https://github.com/cake-admin/cakev2 && cp -r cakev2/starter my-prototype
+npm run build    # typecheck + production bundle
+npm run preview  # serve the build locally
 ```
 
-## What is already wired up
+## What’s in the app
 
-- **`CakeProvider`** mounted once in `src/App.tsx`, with a working theme toggle.
-- **Design tokens** — ~470 CSS custom properties, live, theme-aware.
-- **Rookery New** loaded from the package. No font setup.
-- **63 components**, imported from one path.
-- **Agent context** in `context/` so Claude Code and Cursor know the real API
-  instead of guessing at it. See [AGENTS.md](AGENTS.md).
+- **Shell** — Tech World nav, routes for Dashboard / Registration / Seating
+- **Shared chips** — `PersonChip`, `LocationChip`, `CompanyChip`, `SpeakerChip`
+  used across tables and popups
+- **Guest info modal** — opens from person chips on all three pages
+- **Suite popup** — room config + scrollable seating list (Seating page)
+- **Mock data** — `server/dashboardData.ts`, `registrationData.ts`, `seatingData.ts`
+  (Dashboard also exposes `/api/dashboard` in the Vite dev server)
 
-## Working with a coding agent
-
-Point it at this folder and ask for what you want — "build a settings page with
-tabs, a table, and a save button". It reads `AGENTS.md` and `context/` and builds
-from real cake& components with real tokens.
+UI is built with cake& (`@cake-admin/cakeand`). Agent rules live in
+[AGENTS.md](AGENTS.md); generated component docs are in `context/`.
 
 ## Updating cake&
 
@@ -44,43 +44,25 @@ from real cake& components with real tokens.
 npm run cake:update
 ```
 
-This resolves the newest release and pins its exact version. The dependency is a
-version-specific URL on purpose — a "always latest" URL would silently fail to
-update, then break `npm ci` with an integrity error. `scripts/update-cake.mjs`
-explains the full reasoning.
+Pins the newest cake& release URL. See `scripts/update-cake.mjs` for why the
+dependency is a versioned tarball rather than a floating “latest” URL.
 
-## Adding cake& to an app you already have
-
-```bash
-npm install https://github.com/cake-admin/cakev2/releases/download/v4.2.4/cake-admin-cakeand-4.2.4.tgz
-npm install react react-dom styled-components radix-ui lucide-react
-```
-
-The current kit is
+Current kit:
 [v4.2.4](https://github.com/cake-admin/cakev2/releases#release-v4.2.4).
-
-Then copy three things from this starter, all of which matter:
-
-1. `resolve.dedupe` from `vite.config.ts`
-2. the explicit `import '@cake-admin/cakeand/cakeand.css'` in `src/main.tsx`
-3. `data-theme` on `<html>` in `index.html`
 
 ## Troubleshooting
 
 | Symptom | Cause |
 | --- | --- |
-| Everything unstyled, every token an empty string | The cake& stylesheet did not load. Check the `@cake-admin/cakeand/cakeand.css` import at the top of `src/main.tsx`. |
-| Your CSS cannot override a cake& value | Import order. Your stylesheets must come *after* the cake& one in `src/main.tsx`. |
-| Components render but ignore the theme | Two copies of `styled-components`. Check `npm ls styled-components`; `resolve.dedupe` in `vite.config.ts` should prevent it. |
-| Flash of the wrong theme on load | `data-theme` in `index.html` disagrees with `mode` in `src/App.tsx`. |
-| `npm error EINTEGRITY` | A lockfile pinned to a tarball whose bytes changed. Delete `package-lock.json` and run `npm run cake:update`. |
-| npm fails oddly on Windows | An `&` in your folder path breaks npm's `.bin` shims. Rename the folder — `Q3 Concepts & Ideas` will not work. |
-| A component you need does not exist | Check `context/cake-components.md`. If it genuinely is not there, raise it against `cake-admin/cakev2` rather than hand-rolling one. |
+| Everything unstyled, every token an empty string | cake& CSS didn’t load — keep `@cake-admin/cakeand/cakeand.css` at the top of `src/main.tsx`. |
+| Your CSS can’t override cake& | Import order — app stylesheets must come *after* the cake& import. |
+| Components render unstyled | Two copies of `styled-components` — keep `resolve.dedupe` in `vite.config.ts`. |
+| Flash of the wrong theme | `data-theme` in `index.html` must match `mode` on `CakeProvider` in `src/App.tsx`. |
+| `npm error EINTEGRITY` | Stale lockfile vs tarball — delete `package-lock.json` and run `npm run cake:update`. |
+| npm fails oddly on Windows | An `&` in the folder path breaks npm shims — rename the folder. |
 
-Use **npm**. pnpm and yarn will resolve the URL dependency, but their layouts
-interact differently with `radix-ui`'s peer graph and are not tested here.
+Use **npm**. pnpm and yarn are not tested with this kit.
 
-## Documentation
+## Design system docs
 
-Live Storybook — every component, its props, variants, and accessibility
-contract: <https://cake.lenovo.com/storybook/>
+Live Storybook: <https://cake.lenovo.com/storybook/>
