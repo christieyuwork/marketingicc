@@ -1,21 +1,19 @@
-import { Avatar } from "@cake-admin/cakeand";
+import { Avatar, SimpleTooltip } from "@cake-admin/cakeand";
 import { NavLink, Outlet } from "react-router";
 import styled from "styled-components";
 import calendarIcon from "../assets/icons/calendar.svg";
 import chatIcon from "../assets/icons/chat.svg";
-import cesMark from "../assets/icons/ces-mark.svg";
 import contactsIcon from "../assets/icons/contacts.svg";
 import feedbackIcon from "../assets/icons/feedback.svg";
-import lenovoMark from "../assets/icons/lenovo-mark.svg";
-import locationIcon from "../assets/icons/location.svg";
+import locationIcon from "../assets/icons/custom/location_on.svg";
 import monitoringIcon from "../assets/icons/monitoring.svg";
-import techworldWord from "../assets/icons/techworld-wordmark.svg";
+import techworldLockup from "../assets/icons/techworld-lockup.svg";
 
 const rail = [
-  { src: monitoringIcon, label: "Monitoring", invert: false },
-  { src: locationIcon, label: "Location", invert: true },
-  { src: calendarIcon, label: "Calendar", invert: true },
-  { src: contactsIcon, label: "Contacts", invert: true },
+  { src: monitoringIcon, label: "Statistics", tooltip: "Statistics: coming soon", invert: false },
+  { src: locationIcon, label: "Maps", tooltip: "Maps: coming soon", invert: false },
+  { src: calendarIcon, label: "Calendar", tooltip: "Calendar: coming soon", invert: true },
+  { src: contactsIcon, label: "Contacts", tooltip: "Contacts: coming soon", invert: true },
 ];
 
 const tabs = [
@@ -29,9 +27,7 @@ export function Shell() {
     <Frame>
       <TopBar>
         <Lockup aria-label="Lenovo Tech World at CES">
-          <LenovoMark src={lenovoMark} alt="" />
-          <Wordmark src={techworldWord} alt="" />
-          <CesMark src={cesMark} alt="" />
+          <img src={techworldLockup} alt="Lenovo Tech World @ CES" />
         </Lockup>
         <TabList>
           {tabs.map((tab) => (
@@ -41,27 +37,50 @@ export function Shell() {
           ))}
         </TabList>
         <Tools>
-          <ChatButton type="button" aria-label="Messages, 4 new">
-            <img src={chatIcon} alt="" width={24} height={24} />
-            <ChatCount>4</ChatCount>
-          </ChatButton>
-          <Person>
-            <Avatar initials="JM" alt="JM" size="sm" />
-          </Person>
+          <SimpleTooltip
+            trigger={
+              <ChatTrigger>
+                <ChatIcon src={chatIcon} alt="" width={18} height={18} />
+                <ChatCount>4</ChatCount>
+              </ChatTrigger>
+            }
+            triggerAriaLabel="Chat experience: coming soon"
+            side="bottom"
+          >
+            Chat experience: coming soon
+          </SimpleTooltip>
+          <WhiteAvatar initials="JM" alt="JM" size="sm" />
         </Tools>
       </TopBar>
       <Body>
         <Rail aria-label="Command center">
           <RailGroup>
             {rail.map((item) => (
-              <RailButton key={item.label} type="button" aria-label={item.label}>
-                <RailIcon src={item.src} alt="" width={20} height={20} $invert={item.invert} />
-              </RailButton>
+              <SimpleTooltip
+                key={item.label}
+                trigger={
+                  <RailIconWrap>
+                    <RailIcon src={item.src} alt="" width={18} height={18} $invert={item.invert} />
+                  </RailIconWrap>
+                }
+                triggerAriaLabel={item.tooltip}
+                side="right"
+              >
+                {item.tooltip}
+              </SimpleTooltip>
             ))}
           </RailGroup>
-          <Feedback type="button" aria-label="Feedback">
-            <RailIcon src={feedbackIcon} alt="" width={20} height={20} $invert />
-          </Feedback>
+          <SimpleTooltip
+            trigger={
+              <FeedbackWrap>
+                <RailIcon src={feedbackIcon} alt="" width={18} height={18} $invert />
+              </FeedbackWrap>
+            }
+            triggerAriaLabel="Feedback: coming soon"
+            side="right"
+          >
+            Feedback: coming soon
+          </SimpleTooltip>
         </Rail>
         <Main>
           <Outlet />
@@ -74,11 +93,12 @@ export function Shell() {
 
 const Frame = styled.div`
   min-height: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   color: #ffffff;
   background:
-    linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)),
+    linear-gradient(180deg, rgba(147, 97, 221, 0.3) 0%, rgba(3, 1, 61, 0.55) 88%),
     url("/brand/background.png") center / cover no-repeat;
 `;
 
@@ -91,37 +111,19 @@ const TopBar = styled.header`
   background: #121315;
   position: relative;
   z-index: 2;
-`;
-
-const Lockup = styled.div`
-  position: relative;
-  width: 156px;
-  height: 32px;
   flex: none;
 `;
 
-const LenovoMark = styled.img`
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 44px;
-  height: 15px;
-`;
+const Lockup = styled.div`
+  flex: none;
+  display: flex;
+  align-items: center;
 
-const Wordmark = styled.img`
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 113px;
-  height: 12px;
-`;
-
-const CesMark = styled.img`
-  position: absolute;
-  right: 0;
-  bottom: 1px;
-  width: 40px;
-  height: 10px;
+  > img {
+    display: block;
+    height: 32px;
+    width: auto;
+  }
 `;
 
 const TabList = styled.nav`
@@ -169,27 +171,35 @@ const Tools = styled.div`
   gap: 12px;
 `;
 
-const Person = styled.div`
-  width: 32px;
-  height: 32px;
-  border-radius: 100px;
-  overflow: hidden;
-  background: #f0c7bf;
-  color: #252629;
-  display: grid;
-  place-items: center;
+const WhiteAvatar = styled(Avatar)`
+  && {
+    background: transparent;
+    overflow: hidden;
+    border-radius: 100px;
+  }
+
+  && span {
+    color: #ffffff !important;
+  }
 `;
 
-const ChatButton = styled.button`
+const ChatTrigger = styled.span`
   position: relative;
   width: 36px;
   height: 36px;
-  border: 0;
   border-radius: 10px;
-  background: #8e8f94;
+  background: var(--color-disabled-disabled, #8e8f94);
   display: grid;
   place-items: center;
-  cursor: pointer;
+  opacity: 0.55;
+  cursor: not-allowed;
+  color: var(--color-text-icon-inverse);
+`;
+
+const ChatIcon = styled.img`
+  width: 18px;
+  height: 18px;
+  filter: brightness(0) invert(1);
 `;
 
 const ChatCount = styled.span`
@@ -229,41 +239,46 @@ const RailGroup = styled.div`
   display: flex;
   flex-direction: column;
   gap: 8px;
+  align-items: center;
 `;
 
 const RailIcon = styled.img<{ $invert?: boolean }>`
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   filter: ${(props) => (props.$invert ? "invert(1)" : "none")};
+  opacity: 0.45;
 `;
 
-const RailButton = styled.button`
+const RailIconWrap = styled.span`
   width: 100%;
+  min-width: 54px;
   height: 48px;
-  border: 0;
-  background: transparent;
   display: grid;
   place-items: center;
-  cursor: pointer;
-
-  img {
-    width: 20px;
-    height: 20px;
-  }
+  cursor: not-allowed;
+  opacity: 0.85;
 `;
 
-const Feedback = styled(RailButton)`
+const FeedbackWrap = styled.span`
   width: 36px;
   height: 36px;
   margin: 0 auto;
   border-radius: 24px;
-  background: #8e8f94;
+  background: var(--color-disabled-disabled, #8e8f94);
+  display: grid;
+  place-items: center;
+  cursor: not-allowed;
+  opacity: 0.55;
 `;
 
 const Main = styled.main`
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding: 24px 56px 24px 24px;
+  overflow: hidden;
 `;
 
 const VerticalMark = styled.img`

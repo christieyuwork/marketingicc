@@ -1,21 +1,42 @@
-import { Card, TextInput } from "@cake-admin/cakeand";
+import { Badge, Card, Dropdown, Scrollbar, SimpleTooltip, TextInput } from "@cake-admin/cakeand";
+import { Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import type { DashboardData } from "../../server/dashboardData";
 import insightsIcon from "../assets/icons/insights.svg";
-import searchIcon from "../assets/icons/search.svg";
-import cesMark from "../assets/icons/ces-mark.svg";
-import lenovoMark from "../assets/icons/lenovo-mark.svg";
-import techworldWord from "../assets/icons/techworld-wordmark.svg";
+import nextStepsIcon from "../assets/icons/next-steps.svg";
+import techworldLockup from "../assets/icons/techworld-lockup.svg";
 import { EChart } from "../charts/EChart";
 import { allocationOption, companyOption, gaugeOption, ticketOption } from "../charts/options";
+import { getGuestInfo, type GuestInfo } from "../../server/seatingData";
+import { PersonChip } from "../components/PersonChip";
+import { SpeakerChip } from "../components/SpeakerChip";
+import { GuestInfoPopup } from "./seating/GuestInfoPopup";
+
+const groupSortOptions = [
+  { label: "By name", value: "name" },
+  { label: "By target amount", value: "target" },
+  { label: "By percentage complete (asc)", value: "pctAsc" },
+  { label: "By percentage complete (desc)", value: "pctDesc" },
+];
+
+const companySortOptions = [
+  { label: "By attendee number", value: "attendees" },
+  { label: "Global accounts only", value: "global" },
+];
+
+function pctComplete(value: number, target: number) {
+  if (target <= 0) return 0;
+  return value / target;
+}
 
 export function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [groupSort, setGroupSort] = useState("frame");
-  const [companySort, setCompanySort] = useState("amount");
+  const [groupSort, setGroupSort] = useState("name");
+  const [companySort, setCompanySort] = useState("attendees");
+  const [guest, setGuest] = useState<GuestInfo | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -35,16 +56,21 @@ export function Dashboard() {
   const allocation = useMemo(() => {
     if (!data) return [];
     const rows = [...data.allocation];
-    if (groupSort === "amount") rows.sort((a, b) => b.value - a.value);
+    rows.sort((a, b) => {
+      if (groupSort === "target") return b.target - a.target;
+      if (groupSort === "pctAsc") return pctComplete(a.value, a.target) - pctComplete(b.value, b.target);
+      if (groupSort === "pctDesc") return pctComplete(b.value, b.target) - pctComplete(a.value, a.target);
+      return a.group.localeCompare(b.group);
+    });
     return rows;
   }, [data, groupSort]);
 
   const companies = useMemo(() => {
     if (!data) return [];
-    const rows = [...data.companies];
-    if (companySort === "name") rows.sort((a, b) => a.name.localeCompare(b.name));
-    else rows.sort((a, b) => a.value - b.value);
-    return rows;
+    if (companySort === "global") {
+      return data.companies.filter((company) => company.global).sort((a, b) => b.value - a.value);
+    }
+    return [...data.companies].sort((a, b) => b.value - a.value);
   }, [data, companySort]);
 
   const registrations = useMemo(() => {
@@ -52,7 +78,13 @@ export function Dashboard() {
     const needle = query.trim().toLowerCase();
     if (!needle) return data.registrations;
     return data.registrations.filter((item) =>
-      [item.name, item.company, item.group, ...item.badges.map((badge) => badge.label)]
+      [
+        item.name,
+        item.company,
+        item.group,
+        item.speaker ? "Speaker" : "",
+        ...item.badges.map((entry) => entry.label),
+      ]
         .join(" ")
         .toLowerCase()
         .includes(needle),
@@ -62,161 +94,200 @@ export function Dashboard() {
   if (error) return <Status role="alert">{error}</Status>;
   if (!data) return <Status>Loading command center…</Status>;
 
+  const chartHeight = Math.max(allocation.length * 44, 200);
+
   return (
     <Page>
       <Title>Get ready for Tech World 2027</Title>
       <Layout>
-        <Stack>
-          <Hero>
-            <HeroLockup aria-hidden="true">
-              <img src={lenovoMark} alt="" />
-              <img src={techworldWord} alt="" />
-              <img src={cesMark} alt="" />
-            </HeroLockup>
-            <Countdown>
-              <Count value={data.countdown.days} unit="days" />
-              <Colon>:</Colon>
-              <Count value={data.countdown.hours} unit="hours" />
-              <Colon>:</Colon>
-              <Count value={data.countdown.minutes} unit="minutes" />
-              <Colon>:</Colon>
-              <Count value={data.countdown.seconds} unit="seconds" />
-            </Countdown>
-            <DateBlock>
-              <DateText>
-                {data.countdown.date.replace(" 2027", "\n2027")}
-              </DateText>
-              <Block src="/brand/techworld-block.png" alt="" />
-            </DateBlock>
-          </Hero>
-          <Split>
-            <Surface>
-              <InsightTitle>
-                <img src={insightsIcon} alt="" width={16} height={16} />
-                {data.insights.title}
-              </InsightTitle>
-              <Copy>
-                {data.insights.body.map((run, index) =>
-                  run.strong ? <strong key={index}>{run.text}</strong> : <span key={index}>{run.text}</span>,
-                )}
-              </Copy>
-              <Next>
-                <NextTitle>
-                  <img src={insightsIcon} alt="" width={16} height={16} />
-                  {data.insights.nextTitle}
-                </NextTitle>
-                <Copy>
-                  {data.insights.next.map((run, index) =>
-                    run.strong ? <strong key={index}>{run.text}</strong> : <span key={index}>{run.text}</span>,
-                  )}
-                </Copy>
-              </Next>
-            </Surface>
-            <Surface>
-              <CardTitle>Ticket allocation</CardTitle>
-              <TicketMeta>
-                <strong>{data.ticket.totalLabel}</strong>
-                <span>{data.ticket.percentLabel}</span>
-              </TicketMeta>
-              <ChartBox $height={72}>
-                <EChart option={ticketOption(data.ticket)} label="Ticket allocation" />
-              </ChartBox>
-              <Legend>
-                {data.ticket.segments
-                  .filter((segment) => segment.legend)
-                  .map((segment) => (
-                    <LegendItem key={segment.name}>
-                      <Swatch $color={segment.color} />
-                      {segment.name}: {segment.count}
-                    </LegendItem>
-                  ))}
-                <LegendItem>
-                  <Swatch $color="#ffffff" />
-                  Target: {data.ticket.target}
+        <Hero>
+          <HeroLockup aria-hidden="true">
+            <img src={techworldLockup} alt="" />
+          </HeroLockup>
+          <Countdown>
+            <Count value={data.countdown.days} unit="days" />
+            <Colon>:</Colon>
+            <Count value={data.countdown.hours} unit="hours" />
+            <Colon>:</Colon>
+            <Count value={data.countdown.minutes} unit="minutes" />
+            <Colon>:</Colon>
+            <Count value={data.countdown.seconds} unit="seconds" />
+          </Countdown>
+          <DateBlock>
+            <DateText>
+              <DateDay>{data.countdown.date.replace(/\s+\d{4}$/, "")}</DateDay>
+              <DateYear>{data.countdown.date.match(/\d{4}$/)?.[0] ?? "2027"}</DateYear>
+            </DateText>
+            <Block src="/brand/techworld-block.png" alt="" />
+          </DateBlock>
+        </Hero>
+
+        <Gauges>
+          {data.gauges.map((gauge) => (
+            <GaugeSurface key={gauge.label}>
+              <CardTitle>{gauge.label}</CardTitle>
+              <ChartFill>
+                <EChart option={gaugeOption(gauge)} label={`${gauge.label}, ${gauge.percent} percent registered`} />
+              </ChartFill>
+            </GaugeSurface>
+          ))}
+        </Gauges>
+
+        <InsightSurface>
+          <InsightTitle>
+            <img src={insightsIcon} alt="" width={18} height={18} />
+            {data.insights.title}
+          </InsightTitle>
+          <Copy>
+            {data.insights.body.map((run, index) =>
+              run.strong ? <strong key={index}>{run.text}</strong> : <span key={index}>{run.text}</span>,
+            )}
+          </Copy>
+          <Next>
+            <NextTitle>
+              <NextIcon src={nextStepsIcon} alt="" width={18} height={18} />
+              {data.insights.nextTitle}
+            </NextTitle>
+            <Copy>
+              {data.insights.next.map((run, index) =>
+                run.strong ? <strong key={index}>{run.text}</strong> : <span key={index}>{run.text}</span>,
+              )}
+            </Copy>
+          </Next>
+        </InsightSurface>
+
+        <TicketCard>
+          <CardTitle>Ticket registration</CardTitle>
+          <TicketRow>
+            <TicketMeta>
+              <strong>{data.ticket.totalLabel}</strong>
+              <span>{data.ticket.percentLabel}</span>
+            </TicketMeta>
+            <TicketChart>
+              <EChart option={ticketOption(data.ticket)} label="Ticket registration" />
+            </TicketChart>
+          </TicketRow>
+          <Legend>
+            {data.ticket.segments
+              .filter((segment) => segment.legend)
+              .map((segment) => (
+                <LegendItem key={segment.name}>
+                  <Swatch $color={segment.color} />
+                  {segment.name}: {segment.count}
                 </LegendItem>
-              </Legend>
-            </Surface>
-          </Split>
-          <Split $bottom>
-            <Surface>
-              <CardHead>
-                <CardTitle>Allocation progress by group</CardTitle>
-                <Sort
-                  aria-label="Sort allocation"
-                  value={groupSort}
-                  onChange={(event) => setGroupSort(event.target.value)}
-                >
-                  <option value="frame">By name</option>
-                  <option value="amount">By amount</option>
-                </Sort>
-              </CardHead>
-              <ChartBox $height={500}>
-                <EChart option={allocationOption(allocation)} label="Allocation progress by group" />
-              </ChartBox>
-            </Surface>
-            <Surface>
-              <CardHead>
-                <CardTitle>Company representation at Tech World</CardTitle>
-                <Sort
-                  aria-label="Sort companies"
-                  value={companySort}
-                  onChange={(event) => setCompanySort(event.target.value)}
-                >
-                  <option value="amount">By amount</option>
-                  <option value="name">By name</option>
-                </Sort>
-              </CardHead>
-              <ChartBox $height={500}>
-                <EChart option={companyOption(companies)} label="Company representation" />
-              </ChartBox>
-            </Surface>
-          </Split>
-        </Stack>
-        <Side>
-          <Gauges>
-            {data.gauges.map((gauge) => (
-              <Surface key={gauge.label}>
-                <CardTitle>{gauge.label}</CardTitle>
-                <ChartBox $height={150}>
-                  <EChart option={gaugeOption(gauge)} label={`${gauge.label}, ${gauge.percent} percent registered`} />
-                </ChartBox>
-              </Surface>
-            ))}
-          </Gauges>
-          <Surface>
-            <CardHead>
-              <CardTitle>All registrations</CardTitle>
-              <SearchWrap>
-                <TextInput
-                  aria-label="Search registrations"
-                  placeholder="Search"
-                  size="sm"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  endIcon={<img src={searchIcon} alt="" width={16} height={16} />}
-                />
-              </SearchWrap>
-            </CardHead>
-            <Table>
-              {registrations.map((item, index) => (
-                <Row key={`${item.name}-${item.company}-${index}`}>
-                  <Name>{item.name}</Name>
-                  <Pills>
-                    {item.badges.map((badge) => (
-                      <Pill key={badge.label} $color={badge.tone}>
-                        {badge.label}
-                      </Pill>
-                    ))}
-                  </Pills>
-                  <Company>{item.company}</Company>
-                  {item.group ? <Group>{item.group}</Group> : <span />}
-                </Row>
               ))}
-              {registrations.length === 0 ? <Empty>No registrations match that search.</Empty> : null}
-            </Table>
-          </Surface>
-        </Side>
+            <LegendItem>
+              <Swatch $color="#ffffff" />
+              Target: {data.ticket.target}
+            </LegendItem>
+          </Legend>
+        </TicketCard>
+
+        <ProgressCard>
+          <CardHead>
+            <CardTitle>Registration progress by group</CardTitle>
+            <DropdownWrap>
+              <Dropdown
+                aria-label="Sort registration progress"
+                options={groupSortOptions}
+                value={groupSort}
+                onValueChange={setGroupSort}
+              />
+            </DropdownWrap>
+          </CardHead>
+          <ScrollFill>
+            <Scrollbar maxHeight="100%">
+              <ChartScroll $height={chartHeight}>
+                <EChart option={allocationOption(allocation)} label="Registration progress by group" />
+              </ChartScroll>
+            </Scrollbar>
+          </ScrollFill>
+        </ProgressCard>
+
+        <CompanyCard>
+          <CardHead>
+            <CardTitle>Company representation</CardTitle>
+            <DropdownWrap>
+              <Dropdown
+                aria-label="Sort companies"
+                options={companySortOptions}
+                value={companySort}
+                onValueChange={setCompanySort}
+              />
+            </DropdownWrap>
+          </CardHead>
+          <ChartFill>
+            <EChart option={companyOption(companies)} label="Company representation" />
+          </ChartFill>
+        </CompanyCard>
+
+        <RegistrationsCard>
+          <CardHead>
+            <CardTitle>All registrations</CardTitle>
+            <SearchWrap>
+              <TextInput
+                aria-label="Search registrations"
+                placeholder="Search"
+                size="sm"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                startIcon={<Search size={16} />}
+              />
+            </SearchWrap>
+          </CardHead>
+          <ScrollFill>
+            <Scrollbar maxHeight="100%">
+              <Table>
+                {registrations.map((item, index) => (
+                  <Row key={`${item.name}-${item.company}-${index}`}>
+                    <PersonChip
+                      name={item.name}
+                      iconSize={12}
+                      onClick={() => setGuest(getGuestInfo(item.name))}
+                    />
+                    <Pills>
+                      {item.badges.map((entry) => (
+                        <Pill key={entry.label} $tone={entry.tone}>
+                          {entry.label}
+                        </Pill>
+                      ))}
+                    </Pills>
+                    <TooltipCell>
+                      <SimpleTooltip trigger={<Company>{item.company}</Company>} side="top" maxWidth={280}>
+                        {item.company}
+                      </SimpleTooltip>
+                    </TooltipCell>
+                    {item.speaker ? (
+                      <SpeakerChip iconSize={12} />
+                    ) : item.group ? (
+                      <TooltipCell>
+                        <SimpleTooltip
+                          trigger={
+                            <GroupChip>
+                              <Badge color="violet" tone="subtle" dot={false}>
+                                {item.group}
+                              </Badge>
+                            </GroupChip>
+                          }
+                          side="top"
+                          maxWidth={320}
+                        >
+                          {item.group}
+                        </SimpleTooltip>
+                      </TooltipCell>
+                    ) : (
+                      <span />
+                    )}
+                  </Row>
+                ))}
+                {registrations.length === 0 ? <Empty>No registrations match that search.</Empty> : null}
+              </Table>
+            </Scrollbar>
+          </ScrollFill>
+        </RegistrationsCard>
       </Layout>
+
+      {guest ? <GuestInfoPopup guest={guest} onClose={() => setGuest(null)} /> : null}
     </Page>
   );
 }
@@ -233,8 +304,11 @@ function Count({ value, unit }: { value: string; unit: string }) {
 const Page = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-300);
   min-width: 0;
+  min-height: 0;
+  flex: 1;
+  height: 100%;
 `;
 
 const Title = styled.h1`
@@ -243,27 +317,16 @@ const Title = styled.h1`
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1.35;
+  flex: none;
 `;
 
 const Layout = styled.div`
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1130fr) minmax(280px, 672fr);
-  gap: 16px;
-  align-items: start;
-`;
-
-const Stack = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
-`;
-
-const Side = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  min-width: 0;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+  gap: var(--space-300);
 `;
 
 const Surface = styled(Card)`
@@ -275,108 +338,187 @@ const Surface = styled(Card)`
     border-radius: 24px;
     padding: 24px;
     min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 `;
 
 const Hero = styled(Surface)`
   && {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
+    grid-column: 1 / 6;
+    grid-row: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    align-items: stretch;
     gap: 24px;
-    min-height: 100px;
+    min-height: 0;
   }
 `;
 
 const HeroLockup = styled.div`
-  position: relative;
-  width: 220px;
-  height: 48px;
-  flex: none;
+  display: flex;
+  align-items: center;
+  align-self: center;
+  justify-self: start;
 
-  img:nth-child(1) {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 62px;
-    height: 21px;
-  }
-
-  img:nth-child(2) {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 150px;
-    height: 16px;
-  }
-
-  img:nth-child(3) {
-    position: absolute;
-    right: 0;
-    bottom: 1px;
-    width: 56px;
-    height: 14px;
+  > img {
+    display: block;
+    height: 48px;
+    width: auto;
   }
 `;
 
 const Countdown = styled.div`
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  justify-content: center;
+  gap: 16px;
+  align-self: center;
+  justify-self: center;
 `;
 
 const CountBlock = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 64px;
+  gap: 12px;
+  width: 80px;
 `;
 
 const CountValue = styled.span`
-  font-size: 40px;
-  font-weight: 700;
+  font-family: "Moto Sans", sans-serif;
+  font-size: 48px;
+  font-weight: 400;
+  font-synthesis: none;
   line-height: 1;
+  color: #f1e1ed;
+  text-transform: uppercase;
 `;
 
 const CountUnit = styled.span`
-  margin-top: 4px;
-  color: #aaaab4;
-  font-size: 12px;
+  color: #d9c1d8;
+  font-size: 14px;
+  line-height: 1;
+  text-align: center;
 `;
 
 const Colon = styled.span`
-  font-size: 32px;
-  font-weight: 700;
+  font-family: "Moto Sans", sans-serif;
+  font-size: 64px;
+  font-weight: 400;
+  font-synthesis: none;
   line-height: 1;
+  color: #f1e1ed;
+  width: 36px;
+  text-align: center;
 `;
 
 const DateBlock = styled.div`
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 16px;
+  min-height: 0;
+  height: 100%;
 `;
 
-const DateText = styled.p`
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.1;
-  text-align: right;
-  white-space: pre-line;
+const DateText = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+  font-family: "Moto Sans", sans-serif;
+  font-weight: 400;
+  font-synthesis: none;
+  align-self: center;
+`;
+
+const DateDay = styled.span`
+  font-size: 24px;
+  line-height: 1;
+  color: #f1e1ed;
+`;
+
+const DateYear = styled.span`
+  font-size: 36px;
+  line-height: 0.95;
+  margin-top: -2px;
+  color: #d9c1d8;
+  text-transform: lowercase;
 `;
 
 const Block = styled.img`
-  width: 38px;
-  height: 50px;
+  height: 100%;
+  width: auto;
+  max-width: 72px;
   object-fit: contain;
+  object-position: right center;
 `;
 
-const Split = styled.div<{ $bottom?: boolean }>`
+const Gauges = styled.div`
+  grid-column: 6 / 9;
+  grid-row: 1 / 4;
   display: grid;
-  grid-template-columns: ${(props) => (props.$bottom ? "672fr 442fr" : "442fr 672fr")};
-  gap: 16px;
-  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: var(--space-300);
+  min-height: 0;
+
+  > * {
+    min-height: 0;
+    height: 100%;
+  }
+`;
+
+const GaugeSurface = styled(Surface)`
+  && {
+    padding: 12px 14px 8px;
+  }
+`;
+
+const InsightSurface = styled(Surface)`
+  && {
+    grid-column: 1 / 3;
+    grid-row: 2 / 4;
+    background: linear-gradient(
+      21.57deg,
+      rgba(238, 103, 43, 0.15) 0%,
+      rgba(231, 88, 204, 0.15) 100%
+    );
+    backdrop-filter: blur(90px);
+    border: 1px solid var(--color-badge-orange);
+    box-shadow: 0 8px 36px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+const TicketCard = styled(Surface)`
+  && {
+    grid-column: 3 / 6;
+    grid-row: 2 / 4;
+  }
+`;
+
+const ProgressCard = styled(Surface)`
+  && {
+    grid-column: 1 / 4;
+    grid-row: 4 / 9;
+  }
+`;
+
+const CompanyCard = styled(Surface)`
+  && {
+    grid-column: 4 / 6;
+    grid-row: 4 / 9;
+  }
+`;
+
+const RegistrationsCard = styled(Surface)`
+  && {
+    grid-column: 6 / 9;
+    grid-row: 4 / 9;
+  }
 `;
 
 const InsightTitle = styled.h2`
@@ -391,10 +533,16 @@ const InsightTitle = styled.h2`
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+
+  img {
+    flex: none;
+  }
 `;
 
 const Next = styled.div`
   margin-top: 12px;
+  padding: 8px 0;
+  border-radius: 12px;
 `;
 
 const NextTitle = styled.h3`
@@ -408,6 +556,13 @@ const NextTitle = styled.h3`
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+`;
+
+const NextIcon = styled.img`
+  flex: none;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 `;
 
 const Copy = styled.p`
@@ -434,14 +589,27 @@ const CardHead = styled.div`
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
+  flex: none;
+`;
+
+const TicketRow = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  min-width: 0;
 `;
 
 const TicketMeta = styled.p`
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
+  justify-content: center;
   margin: 0;
   font-size: 12px;
+  flex: 0 0 auto;
+  min-width: 88px;
 
   span {
     color: #aaaab4;
@@ -449,8 +617,31 @@ const TicketMeta = styled.p`
   }
 `;
 
-const ChartBox = styled.div<{ $height: number }>`
+const TicketChart = styled.div`
+  height: 56px;
+  flex: 1 1 auto;
+  min-width: 0;
+`;
+
+const ChartFill = styled.div`
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+`;
+
+const ChartScroll = styled.div<{ $height: number }>`
   height: ${(props) => props.$height}px;
+  width: 100%;
+`;
+
+const ScrollFill = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+
+  > * {
+    height: 100%;
+  }
 `;
 
 const Legend = styled.ul`
@@ -462,6 +653,7 @@ const Legend = styled.ul`
   list-style: none;
   color: #c6c6cf;
   font-size: 12px;
+  flex: none;
 `;
 
 const LegendItem = styled.li`
@@ -477,41 +669,51 @@ const Swatch = styled.span<{ $color: string }>`
   background: ${(props) => props.$color};
 `;
 
-const Sort = styled.select`
-  height: 24px;
-  border-radius: 100px;
-  border: 1px solid #5e5e5e;
-  background: rgba(0, 0, 0, 0.25);
-  color: #aaaaaf;
-  font-size: 14px;
-  padding: 0 8px;
-`;
+const DropdownWrap = styled.div`
+  width: 168px;
+  max-width: 168px;
+  flex: none;
 
-const Gauges = styled.div`
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  label {
+    display: none;
+  }
+
+  button {
+    width: 100%;
+    max-width: 100%;
+    height: 32px;
+    min-height: 32px;
+    padding-block: 0;
+    overflow: hidden;
+  }
+
+  /* Truncate trigger label; menu options keep full text */
+  button,
+  button * {
+    white-space: nowrap !important;
+  }
+
+  button span,
+  button > span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
 `;
 
 const SearchWrap = styled.div`
   width: 220px;
-
-  input {
-    background: rgba(0, 0, 0, 0.25);
-    color: #ffffff;
-  }
 `;
 
 const Table = styled.div`
   display: flex;
   flex-direction: column;
-  max-height: 360px;
-  overflow: auto;
 `;
 
 const Row = styled.div`
   display: grid;
-  grid-template-columns: minmax(90px, 1.1fr) minmax(110px, 1.2fr) minmax(70px, 0.8fr) minmax(120px, 1.4fr);
+  grid-template-columns: minmax(90px, 1.1fr) minmax(110px, 1.2fr) minmax(70px, 0.8fr) minmax(80px, 1.4fr);
   gap: 8px;
   align-items: center;
   min-height: 32px;
@@ -522,33 +724,57 @@ const Row = styled.div`
   }
 `;
 
-const Name = styled.span`
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
-`;
-
 const Pills = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 `;
 
-const Pill = styled.span<{ $color: string }>`
+const guestTone = {
+  general: { color: "#c5d4ff", background: "#1e2a4a" },
+  enhanced: { color: "#b8ecd0", background: "#143528" },
+  suite: { color: "#ffb599", background: "#3a1f18" },
+  vvip: { color: "#f0e6a8", background: "#3a3420" },
+} as const;
+
+const Pill = styled.span<{ $tone: keyof typeof guestTone }>`
   display: inline-flex;
   align-items: center;
-  padding: 0 6px;
+  padding: 0 8px;
   border-radius: 64px;
-  background: color-mix(in srgb, ${(props) => props.$color} 22%, #1a1024);
-  color: ${(props) => props.$color};
+  background: ${(props) => guestTone[props.$tone].background};
+  color: ${(props) => guestTone[props.$tone].color};
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.2px;
-  line-height: 16px;
+  line-height: 18px;
+  white-space: nowrap;
+`;
+
+const TooltipCell = styled.div`
+  justify-self: start;
+  min-width: 0;
+  max-width: 100%;
+
+  > * {
+    max-width: 100%;
+  }
+
+  button {
+    display: block;
+    max-width: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: default;
+  }
 `;
 
 const Company = styled.span`
-  justify-self: start;
+  display: block;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -560,16 +786,20 @@ const Company = styled.span`
   font-weight: 700;
 `;
 
-const Group = styled.span`
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 6px;
-  border-radius: 16px;
-  background: #fbecfb;
-  color: #7a126b;
-  font-size: 12px;
-  font-weight: 700;
+const GroupChip = styled.div`
+  width: fit-content;
+  max-width: min(200px, 100%);
+  min-width: 0;
+
+  > * {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--color-badge-violet) 32%, transparent) !important;
+    color: var(--color-badge-violet) !important;
+  }
 `;
 
 const Status = styled.p`
