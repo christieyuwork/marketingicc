@@ -1,8 +1,8 @@
 import { Badge, Card, Dropdown, Scrollbar, SimpleTooltip, TextInput } from "@cake-admin/cakeand";
 import { Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import styled from "styled-components";
-import type { DashboardData } from "../../server/dashboardData";
+import { getDashboard } from "../../server/dashboardData";
 import insightsIcon from "../assets/icons/insights.svg";
 import nextStepsIcon from "../assets/icons/next-steps.svg";
 import techworldLockup from "../assets/icons/techworld-lockup.svg";
@@ -12,6 +12,8 @@ import { getGuestInfo, type GuestInfo } from "../../server/seatingData";
 import { PersonChip } from "../components/PersonChip";
 import { SpeakerChip } from "../components/SpeakerChip";
 import { GuestInfoPopup } from "./seating/GuestInfoPopup";
+
+const dashboard = getDashboard();
 
 const groupSortOptions = [
   { label: "By name", value: "name" },
@@ -31,31 +33,13 @@ function pctComplete(value: number, target: number) {
 }
 
 export function Dashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [groupSort, setGroupSort] = useState("name");
   const [companySort, setCompanySort] = useState("attendees");
   const [guest, setGuest] = useState<GuestInfo | null>(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/dashboard", { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error("Dashboard data did not load");
-        return response.json() as Promise<DashboardData>;
-      })
-      .then(setData)
-      .catch((reason: unknown) => {
-        if (reason instanceof DOMException && reason.name === "AbortError") return;
-        setError(reason instanceof Error ? reason.message : "Dashboard data did not load");
-      });
-    return () => controller.abort();
-  }, []);
-
   const allocation = useMemo(() => {
-    if (!data) return [];
-    const rows = [...data.allocation];
+    const rows = [...dashboard.allocation];
     rows.sort((a, b) => {
       if (groupSort === "target") return b.target - a.target;
       if (groupSort === "pctAsc") return pctComplete(a.value, a.target) - pctComplete(b.value, b.target);
@@ -63,21 +47,19 @@ export function Dashboard() {
       return a.group.localeCompare(b.group);
     });
     return rows;
-  }, [data, groupSort]);
+  }, [groupSort]);
 
   const companies = useMemo(() => {
-    if (!data) return [];
     if (companySort === "global") {
-      return data.companies.filter((company) => company.global).sort((a, b) => b.value - a.value);
+      return dashboard.companies.filter((company) => company.global).sort((a, b) => b.value - a.value);
     }
-    return [...data.companies].sort((a, b) => b.value - a.value);
-  }, [data, companySort]);
+    return [...dashboard.companies].sort((a, b) => b.value - a.value);
+  }, [companySort]);
 
   const registrations = useMemo(() => {
-    if (!data) return [];
     const needle = query.trim().toLowerCase();
-    if (!needle) return data.registrations;
-    return data.registrations.filter((item) =>
+    if (!needle) return dashboard.registrations;
+    return dashboard.registrations.filter((item) =>
       [
         item.name,
         item.company,
@@ -89,12 +71,10 @@ export function Dashboard() {
         .toLowerCase()
         .includes(needle),
     );
-  }, [data, query]);
-
-  if (error) return <Status role="alert">{error}</Status>;
-  if (!data) return <Status>Loading command center…</Status>;
+  }, [query]);
 
   const chartHeight = Math.max(allocation.length * 44, 200);
+  const data = dashboard;
 
   return (
     <Page>
@@ -800,10 +780,6 @@ const GroupChip = styled.div`
     background: color-mix(in srgb, var(--color-badge-violet) 32%, transparent) !important;
     color: var(--color-badge-violet) !important;
   }
-`;
-
-const Status = styled.p`
-  margin: 24px 0;
 `;
 
 const Empty = styled.p`
