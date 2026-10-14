@@ -362,7 +362,6 @@ export function getSeating() {
         { name: "Enhanced", count: 827, share: 833, color: "#dd8aff", legend: true },
         { name: "Suite", count: 217, share: 219, color: "#ee672b", legend: true },
         { name: "VVIP", count: 23, share: 21, color: "#dcc652", legend: true },
-        { name: "Speaker", count: 18, share: 18, color: "#53a338", legend: true },
       ] satisfies TicketSegment[],
     },
     gauges: [
